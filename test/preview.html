@@ -96,10 +96,22 @@
         'sensor.circuit_kitchen':{ state: '920',  attributes: { friendly_name: 'Kitchen', unit_of_measurement: 'W' } },
         'sensor.circuit_ev':     { state: '3200', attributes: { friendly_name: 'EV Charger', unit_of_measurement: 'W' } },
         'sensor.circuit_lights': { state: '260',  attributes: { friendly_name: 'Lighting', unit_of_measurement: 'W' } },
+        'light.living_room':     { state: 'on',   attributes: { friendly_name: 'Living Room', icon: 'mdi:sofa' }, last_changed: new Date(now - 8 * 60000).toISOString() },
+        'switch.coffee':         { state: 'off',  attributes: { friendly_name: 'Coffee Maker' }, last_changed: new Date(now - 3 * 3600000).toISOString() },
+        'binary_sensor.door':    { state: 'off',  attributes: { friendly_name: 'Front Door', device_class: 'door' }, last_changed: new Date(now - 42 * 60000).toISOString() },
       },
       callWS(msg) {
         const id = msg.entity_ids ? msg.entity_ids[0] : null;
         return Promise.resolve({ [id]: HIST[id] || [] });
+      },
+      callService(domain, service, data) {
+        // Optimistic toggle so the preview feels live.
+        const id = data && data.entity_id;
+        if (service === 'toggle' && id && hass.states[id]) {
+          hass.states[id] = { ...hass.states[id], state: hass.states[id].state === 'on' ? 'off' : 'on', last_changed: new Date().toISOString() };
+          build();
+        }
+        return Promise.resolve();
       },
     };
 
@@ -113,6 +125,7 @@
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.humidity', name: 'Humidity', icon: 'mdi:water-percent', min: 0, max: 100, style: 'fill', segments: [{from:0,color:'amber'},{from:35,color:'green'},{from:65,color:'blue'}] } },
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.cpu_temperature', name: 'CPU Temp', min: 20, max: 90, style: 'bands', segments: [{from:20,color:'green'},{from:65,color:'amber'},{from:80,color:'red'}] } },
       { type: 'prism-bar-card', cfg: { title: 'Power by circuit', entities: ['sensor.circuit_ev','sensor.circuit_hvac','sensor.circuit_kitchen','sensor.circuit_lights'], unit: 'W', sort: true, accent: 'blue', segments: [{from:0,color:'green'},{from:1500,color:'amber'},{from:3000,color:'red'}] }, wide: true },
+      { type: 'prism-entities-card', cfg: { title: 'Living Room', secondary: 'last-changed', accent: 'amber', entities: ['light.living_room', 'switch.coffee', { entity: 'binary_sensor.door', icon: 'mdi:door' }, { entity: 'sensor.humidity', name: 'Humidity', icon: 'mdi:water-percent' }, { entity: 'sensor.house_power', name: 'Power', icon: 'mdi:flash' }] } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

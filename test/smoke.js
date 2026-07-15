@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -52,7 +52,11 @@ const now = Date.now();
 const hist = Array.from({ length: 30 }, (_, i) => ({ s: (60 + Math.sin(i / 3) * 8).toFixed(1), lu: now / 1000 - (30 - i) * 300 }));
 const hass = {
   themes: { darkMode: false },
-  states: { 'sensor.x': { state: '61.5', attributes: { friendly_name: 'Test', unit_of_measurement: '%' } } },
+  states: {
+    'sensor.x': { state: '61.5', attributes: { friendly_name: 'Test', unit_of_measurement: '%' }, last_changed: new Date(now - 3600000).toISOString(), last_updated: new Date(now - 60000).toISOString() },
+    'light.x': { state: 'on', attributes: { friendly_name: 'Lamp' }, last_changed: new Date(now - 120000).toISOString() },
+  },
+  callService: () => {},
   callWS: () => Promise.resolve({ 'sensor.x': hist }),
 };
 
@@ -95,9 +99,11 @@ check('parses compact history', async () => {});
     ['prism-bar-card', { entities: ['sensor.x'], max: 100, segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'fill', segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', icon: 'mdi:water', segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }] }],
+    ['prism-entities-card', { title: 'Room', secondary: 'last-changed', entities: ['sensor.x', 'light.x', { entity: 'light.x', name: 'Forced', toggle: false }] }],
+    ['prism-entities-card', { entities: ['sensor.x'], show_icons: false, state_color: false }],
   ];
   for (const [tag, cfg] of cards) {
-    check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + '-bar' : 'default')})`, () => {
+    check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : 'default')})`, () => {
       const Ctor = customElements.get(tag);
       const el = new Ctor();
       el.setConfig(cfg);

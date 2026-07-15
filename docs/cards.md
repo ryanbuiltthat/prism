@@ -6,7 +6,7 @@ Common to all cards:
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
-| `entity` | string | — | **Required** (except `prism-bar-card`, which takes `entities`). |
+| `entity` | string | — | **Required** (except `prism-bar-card` and `prism-entities-card`, which take `entities`). |
 | `name` | string | entity friendly name | Card label. |
 | `unit` | string | entity unit | Override the displayed unit. |
 | `accent` | string | `theme` | `theme` (use `--prism-accent`), a preset name, or a hex like `#ff8800`. |
@@ -197,6 +197,35 @@ entities:
 
 ---
 
+## `custom:prism-entities-card`
+
+Flat **entity list** — one row per entity with an icon, name, optional secondary line, and a right-aligned value. Actionable domains (`light`, `switch`, `fan`, `input_boolean`, `humidifier`, `siren`) get a flat toggle. (Takes `entities`, not a single `entity`.)
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entities` | list | — | **Required.** Each item is an entity id, or `{ entity, name?, icon?, secondary?, toggle? }`. |
+| `title` | string | — | Card header. |
+| `accent` | string | `theme` | Colour for active-state icons and toggles. |
+| `show_icons` | bool | `true` | Show the icon column. |
+| `state_color` | bool | `true` | Tint the icon with the accent when the entity is "on"/active. |
+| `secondary` | string | — | Default secondary line: `last-changed`, `last-updated`, or an attribute name. Overridable per row. |
+
+Per-row `toggle: true`/`false` forces or suppresses the toggle control regardless of domain. Numeric states show with their unit; other states are title-cased. Tap a row for more-info; toggles call `homeassistant.toggle` in place.
+
+```yaml
+type: custom:prism-entities-card
+title: Living Room
+secondary: last-changed
+accent: amber
+entities:
+  - light.living_room
+  - switch.coffee_maker
+  - { entity: binary_sensor.door, icon: mdi:door }
+  - { entity: sensor.humidity, name: Humidity, secondary: last-updated }
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -209,5 +238,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Power | 3 (4 with sparkline) | 6 |
 | Linear gauge | 2 | 6 |
 | Bar | 1 + one per entity | 6 |
+| Entities | 1 + one per entity | 6 |
 
 You can override with `grid_options` per card.

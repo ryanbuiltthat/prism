@@ -78,6 +78,19 @@ views:
               - { from: 50, color: green }
 
       - type: grid
+        cards:
+          - type: custom:prism-entities-card
+            title: Living Room
+            secondary: last-changed
+            accent: amber
+            entities:
+              - light.living_room
+              - switch.coffee_maker
+              - { entity: binary_sensor.front_door, icon: mdi:door }
+              - { entity: sensor.living_room_temperature, name: Temperature }
+              - { entity: sensor.living_room_humidity, name: Humidity }
+
+      - type: grid
         column_span: 3
         cards:
           - type: custom:prism-sparkline-card
