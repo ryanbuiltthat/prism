@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -89,9 +89,11 @@ check('parses compact history', async () => {});
     ['prism-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', segments: [{from:0,color:'green'},{from:80,color:'red'}] }],
     ['prism-sparkline-card', { entity: 'sensor.x', hours: 24, style: 'area', show_minmax: true }],
     ['prism-sparkline-card', { entity: 'sensor.x', hours: 24, style: 'line' }],
+    ['prism-power-card', { entity: 'sensor.x', mode: 'load', max: 100, peak: true, sparkline: true, energy_entity: 'sensor.x', icon: 'mdi:flash' }],
+    ['prism-power-card', { entity: 'sensor.x', mode: 'grid', peak: true, sparkline: true }],
   ];
   for (const [tag, cfg] of cards) {
-    check(`${tag} (${cfg.style || 'default'})`, () => {
+    check(`${tag} (${cfg.style || cfg.mode || 'default'})`, () => {
       const Ctor = customElements.get(tag);
       const el = new Ctor();
       el.setConfig(cfg);

@@ -44,6 +44,30 @@ views:
 
       - type: grid
         cards:
+          - type: custom:prism-power-card
+            entity: sensor.total_power
+            name: House Power
+            icon: mdi:home-lightning-bolt
+            mode: load
+            hours: 3
+            peak: true
+            sparkline: true
+            energy_entity: sensor.daily_energy
+            energy_label: Today
+            accent: amber
+
+          - type: custom:prism-power-card
+            entity: sensor.grid_net_power
+            name: Grid
+            icon: mdi:transmission-tower
+            mode: grid
+            hours: 3
+            peak: true
+            sparkline: true
+            accent: teal
+
+      - type: grid
+        cards:
           - type: custom:prism-gauge-card
             entity: sensor.self_sufficiency
             name: Self-Sufficiency

@@ -25,12 +25,13 @@ Prism is two things working together:
 | **Stat** | `custom:prism-stat-card` | KPI tile: dominant value, label, unit, trend delta over a window, optional inline sparkline. |
 | **Gauge** | `custom:prism-gauge-card` | Flat 270 degree gauge with configurable severity bands. `fill` or `bands`+needle styles. |
 | **Sparkline** | `custom:prism-sparkline-card` | History mini-graph (line/area) with current value + optional min/max markers. |
+| **Power** | `custom:prism-power-card` | Live power tile: dominant value, load bar, window peak, optional energy total, and a `grid` mode for signed import/export sensors. |
 
 All cards have a **visual editor**, an **accent picker** (theme token, preset, or
 custom hex), work in **light + dark**, are keyboard-focusable, and open
 more-info on tap.
 
-More cards (energy/power, bar, entity list, ...) are planned — the shared
+More cards (bar, entity list, ...) are planned — the shared
 `PrismUI` runtime is built to grow.
 
 ---

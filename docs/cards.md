@@ -97,6 +97,39 @@ History is downsampled (≤300 pts) for fast, smooth rendering, cached 5 min.
 
 ---
 
+## `custom:prism-power-card`
+
+Live power tile with a load bar for context — built for real-time energy monitoring (CT-clamp power sensors, grid/solar feeds).
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `icon` | string | — | Any `mdi:` icon, shown in an accent chip. |
+| `decimals` | number | auto | Auto: 0 (≥100 W), 1 (≥10), else 2. |
+| `mode` | `load` \| `grid` | `load` | `load`: bar fills 0 → max. `grid`: zero-centred bar, import right / export left, with an Import/Export pill. |
+| `max` | number | window peak | Bar full-scale. Blank auto-scales to the peak in the history window. |
+| `energy_entity` | string | — | Optional energy total (kWh) shown top-right; tap for more-info. |
+| `energy_label` | string | `Today` | Label above the energy total. |
+| `hours` | number | `3` | History window for peak + sparkline. |
+| `peak` | bool | `true` | Show the window peak under the bar. |
+| `sparkline` | bool | `false` | Recent-power area sparkline (zero line drawn in `grid` mode). |
+
+Grid mode expects a **signed** sensor: positive = importing from grid, negative = exporting. The value goes green while exporting.
+
+```yaml
+type: custom:prism-power-card
+entity: sensor.grid_net_power
+name: Grid
+icon: mdi:transmission-tower
+mode: grid
+hours: 3
+sparkline: true
+accent: teal
+```
+
+Peak and sparkline read recorder history (cached 5 min).
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -106,5 +139,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Stat | 2 (3 with sparkline) | 6 |
 | Gauge | 4 | 6 |
 | Sparkline | 3 | 12 |
+| Power | 3 (4 with sparkline) | 6 |
 
 You can override with `grid_options` per card.

@@ -9,6 +9,7 @@ FILES=(
   "src/prism-stat-card.js"
   "src/prism-gauge-card.js"
   "src/prism-sparkline-card.js"
+  "src/prism-power-card.js"
 )
 
 {

@@ -76,6 +76,7 @@
     const HIST = {
       'sensor.house_power': walk(650, 180, 120),
       'sensor.grid_power': walk(1200, 400, 120),
+      'sensor.grid_net': walk(0, 900, 120),
       'sensor.battery_soc': walk(64, 6, 120),
       'sensor.cpu_temperature': walk(58, 8, 120),
       'sensor.energy_today': walk(12, 1.2, 120),
@@ -85,6 +86,7 @@
       states: {
         'sensor.house_power':    { state: '712',  attributes: { friendly_name: 'House Power', unit_of_measurement: 'W' } },
         'sensor.grid_power':     { state: '1340', attributes: { friendly_name: 'Grid Power', unit_of_measurement: 'W' } },
+        'sensor.grid_net':       { state: '-820', attributes: { friendly_name: 'Grid Net', unit_of_measurement: 'W' } },
         'sensor.battery_soc':    { state: '64',   attributes: { friendly_name: 'Battery', unit_of_measurement: '%' } },
         'sensor.cpu_temperature':{ state: '58',   attributes: { friendly_name: 'CPU Temp', unit_of_measurement: '°C' } },
         'sensor.energy_today':   { state: '12.4', attributes: { friendly_name: 'Energy Today', unit_of_measurement: 'kWh' } },
@@ -100,6 +102,8 @@
       { type: 'prism-stat-card', cfg: { entity: 'sensor.energy_today', icon: 'mdi:lightning-bolt', decimals: 1, trend: true, accent: 'amber' } },
       { type: 'prism-gauge-card', cfg: { entity: 'sensor.battery_soc', min: 0, max: 100, style: 'fill', segments: [{from:0,color:'red'},{from:20,color:'amber'},{from:50,color:'green'}] } },
       { type: 'prism-gauge-card', cfg: { entity: 'sensor.cpu_temperature', min: 20, max: 90, style: 'bands', segments: [{from:20,color:'green'},{from:65,color:'amber'},{from:80,color:'red'}] } },
+      { type: 'prism-power-card', cfg: { entity: 'sensor.house_power', icon: 'mdi:home-lightning-bolt', mode: 'load', hours: 3, peak: true, sparkline: true, energy_entity: 'sensor.energy_today', energy_label: 'Today', accent: 'amber' } },
+      { type: 'prism-power-card', cfg: { entity: 'sensor.grid_net', icon: 'mdi:transmission-tower', mode: 'grid', hours: 3, peak: true, sparkline: true, accent: 'teal' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];
