@@ -6,7 +6,7 @@ Common to all cards:
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
-| `entity` | string | — | **Required.** |
+| `entity` | string | — | **Required** (except `prism-bar-card`, which takes `entities`). |
 | `name` | string | entity friendly name | Card label. |
 | `unit` | string | entity unit | Override the displayed unit. |
 | `accent` | string | `theme` | `theme` (use `--prism-accent`), a preset name, or a hex like `#ff8800`. |
@@ -130,6 +130,73 @@ Peak and sparkline read recorder history (cached 5 min).
 
 ---
 
+## `custom:prism-linear-gauge-card`
+
+Horizontal gauge — a single value on a linear scale with severity bands. The flat, space-efficient sibling of the radial gauge.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `icon` | string | — | Any `mdi:` icon beside the name. |
+| `min` | number | `0` | Scale minimum. |
+| `max` | number | `100` | Scale maximum. |
+| `decimals` | number | auto | Value precision. |
+| `style` | `fill` \| `bands` | `fill` | `fill`: progress bar coloured by the active band. `bands`: full band strip + a marker at the value. |
+| `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. The active band colours the value (and the fill bar). |
+| `show_minmax` | bool | `true` | Show min/max labels under the bar. |
+
+```yaml
+type: custom:prism-linear-gauge-card
+entity: sensor.tank_level
+name: Water Tank
+icon: mdi:water
+min: 0
+max: 100
+style: bands
+segments:
+  - { from: 0, color: red }
+  - { from: 20, color: amber }
+  - { from: 50, color: green }
+```
+
+---
+
+## `custom:prism-bar-card`
+
+Horizontal **bar chart** comparing several entities on a shared scale — power per circuit, energy per room, humidity per sensor. (This is the one card that takes `entities`, not a single `entity`.)
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entities` | list | — | **Required.** Each item is an entity id, or `{ entity, name?, color?, icon? }`. |
+| `title` | string | — | Card header. |
+| `unit` | string | per-entity | Override the unit shown on every row. |
+| `decimals` | number | auto | Value precision. |
+| `min` | number | `0` | Bar baseline. |
+| `max` | number | largest value | Shared full-scale. Blank auto-scales so the largest bar fills the track. |
+| `accent` | string | `theme` | Default bar colour (per-bar `color` and `segments` override it). |
+| `sort` | bool | `false` | Sort rows by value, descending. |
+| `show_value` | bool | `true` | Show each row's value. |
+| `segments` | list | — | `[{ from, color }]`; colours a bar by its value unless the bar sets its own `color`. |
+
+Per-row colour resolves: bar `color` → severity `segments` (by value) → card `accent`.
+
+```yaml
+type: custom:prism-bar-card
+title: Power by circuit
+sort: true
+unit: W
+segments:
+  - { from: 0, color: green }
+  - { from: 1500, color: amber }
+  - { from: 3000, color: red }
+entities:
+  - sensor.circuit_ev
+  - sensor.circuit_hvac
+  - { entity: sensor.circuit_kitchen, name: Kitchen, icon: mdi:stove }
+  - { entity: sensor.circuit_lights, color: purple }
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -140,5 +207,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Gauge | 4 | 6 |
 | Sparkline | 3 | 12 |
 | Power | 3 (4 with sparkline) | 6 |
+| Linear gauge | 2 | 6 |
+| Bar | 1 + one per entity | 6 |
 
 You can override with `grid_options` per card.

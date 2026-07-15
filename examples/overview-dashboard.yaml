@@ -52,6 +52,32 @@ views:
               - { from: 80, color: red }
 
       - type: grid
+        cards:
+          - type: custom:prism-linear-gauge-card
+            entity: sensor.living_room_humidity
+            name: Humidity
+            icon: mdi:water-percent
+            min: 0
+            max: 100
+            style: bands
+            segments:
+              - { from: 0, color: amber }
+              - { from: 35, color: green }
+              - { from: 65, color: blue }
+
+          - type: custom:prism-linear-gauge-card
+            entity: sensor.battery_soc
+            name: Battery
+            icon: mdi:battery
+            min: 0
+            max: 100
+            style: fill
+            segments:
+              - { from: 0, color: red }
+              - { from: 20, color: amber }
+              - { from: 50, color: green }
+
+      - type: grid
         column_span: 3
         cards:
           - type: custom:prism-sparkline-card

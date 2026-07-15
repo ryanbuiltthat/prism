@@ -10,6 +10,8 @@ FILES=(
   "src/prism-gauge-card.js"
   "src/prism-sparkline-card.js"
   "src/prism-power-card.js"
+  "src/prism-bar-card.js"
+  "src/prism-linear-gauge-card.js"
 )
 
 {

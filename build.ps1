@@ -8,7 +8,9 @@ $files = @(
   'src/prism-stat-card.js',
   'src/prism-gauge-card.js',
   'src/prism-sparkline-card.js',
-  'src/prism-power-card.js'
+  'src/prism-power-card.js',
+  'src/prism-bar-card.js',
+  'src/prism-linear-gauge-card.js'
 )
 
 $sb = [System.Text.StringBuilder]::new()

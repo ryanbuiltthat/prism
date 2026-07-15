@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -91,9 +91,13 @@ check('parses compact history', async () => {});
     ['prism-sparkline-card', { entity: 'sensor.x', hours: 24, style: 'line' }],
     ['prism-power-card', { entity: 'sensor.x', mode: 'load', max: 100, peak: true, sparkline: true, energy_entity: 'sensor.x', icon: 'mdi:flash' }],
     ['prism-power-card', { entity: 'sensor.x', mode: 'grid', peak: true, sparkline: true }],
+    ['prism-bar-card', { title: 'By circuit', entities: ['sensor.x', { entity: 'sensor.x', name: 'Two', color: 'teal', icon: 'mdi:flash' }], sort: true }],
+    ['prism-bar-card', { entities: ['sensor.x'], max: 100, segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
+    ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'fill', segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
+    ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', icon: 'mdi:water', segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }] }],
   ];
   for (const [tag, cfg] of cards) {
-    check(`${tag} (${cfg.style || cfg.mode || 'default'})`, () => {
+    check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + '-bar' : 'default')})`, () => {
       const Ctor = customElements.get(tag);
       const el = new Ctor();
       el.setConfig(cfg);

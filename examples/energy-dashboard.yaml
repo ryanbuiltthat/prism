@@ -83,6 +83,25 @@ views:
       - type: grid
         column_span: 4
         cards:
+          - type: custom:prism-bar-card
+            title: Power by circuit
+            sort: true
+            unit: W
+            decimals: 0
+            segments:
+              - { from: 0, color: green }
+              - { from: 1500, color: amber }
+              - { from: 3000, color: red }
+            entities:
+              - sensor.circuit_ev_charger
+              - sensor.circuit_hvac
+              - { entity: sensor.circuit_kitchen, name: Kitchen, icon: mdi:stove }
+              - { entity: sensor.circuit_lighting, name: Lighting }
+              - sensor.circuit_laundry
+
+      - type: grid
+        column_span: 4
+        cards:
           - type: custom:prism-sparkline-card
             entity: sensor.total_power
             name: Power — last 24h
