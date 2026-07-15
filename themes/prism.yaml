@@ -1,0 +1,191 @@
+# ─────────────────────────────────────────────────────────────────────────
+#  Prism — a flat, minimal, data-first Home Assistant theme.
+#
+#  • Sets native HA tokens for a clean flat look (no heavy shadows, 1px
+#    borders, calm surfaces) so built-in cards match Prism custom cards.
+#  • Publishes Prism design tokens (prism-*) consumed by the Prism cards,
+#    so changing the theme re-skins every card automatically.
+#  • Ships light + dark modes and several accent variants.
+#
+#  Install: copy to  <config>/themes/prism.yaml,  add
+#      frontend:
+#        themes: !include_dir_merge_named themes
+#  to configuration.yaml, restart, then pick a theme in your profile.
+#
+#  Make your own accent: copy a whole `Prism …:` block, rename it, and
+#  change the four accent lines (prism-accent / primary-color /
+#  paper-item-icon-active-color / state-icon-active-color).
+# ─────────────────────────────────────────────────────────────────────────
+
+Prism:
+  # ── Flat base palette (light) — anchored for reuse by every variant ──
+  <<: &prism-shared
+    # Prism design tokens (mode-independent)
+    prism-radius: "18px"
+    prism-gap: "16px"
+    prism-shadow: "none"
+    prism-font: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    # Flat cards: border instead of shadow
+    ha-card-border-radius: "18px"
+    ha-card-box-shadow: "none"
+    ha-card-border-width: "1px"
+    # Rounder controls
+    mdc-shape-small: "10px"
+    mdc-shape-medium: "14px"
+
+  modes:
+    light:
+      <<: &flat-light
+        # App + surfaces
+        primary-background-color: "#f4f6f8"
+        secondary-background-color: "#eef1f4"
+        card-background-color: "#ffffff"
+        ha-card-background: "#ffffff"
+        divider-color: "rgba(20,24,27,0.08)"
+        ha-card-border-color: "rgba(20,24,27,0.08)"
+        # Text
+        primary-text-color: "#15181a"
+        secondary-text-color: "#6b7280"
+        text-primary-color: "#ffffff"
+        disabled-text-color: "#9aa2a8"
+        # State semantics
+        success-color: "#3aa76d"
+        warning-color: "#e0922e"
+        error-color: "#c64b4b"
+        info-color: "#3aa0e8"
+        # Prism surface tokens
+        prism-surface: "#ffffff"
+        prism-surface-2: "#f1f4f6"
+        prism-text-primary: "#15181a"
+        prism-text-secondary: "#6b7280"
+        prism-border: "rgba(20,24,27,0.08)"
+        prism-good: "#3aa76d"
+        prism-warn: "#e0922e"
+        prism-bad: "#c64b4b"
+        # Sidebar / header flatten
+        app-header-background-color: "#ffffff"
+        app-header-text-color: "#15181a"
+        sidebar-background-color: "#ffffff"
+        # ── Accent (blue) ──
+        prism-accent: "#3aa0e8"
+        primary-color: "#3aa0e8"
+        accent-color: "#3aa0e8"
+        paper-item-icon-active-color: "#3aa0e8"
+        state-icon-active-color: "#3aa0e8"
+        switch-checked-color: "#3aa0e8"
+    dark:
+      <<: &flat-dark
+        primary-background-color: "#0e1113"
+        secondary-background-color: "#121619"
+        card-background-color: "#16191c"
+        ha-card-background: "#16191c"
+        divider-color: "rgba(255,255,255,0.09)"
+        ha-card-border-color: "rgba(255,255,255,0.09)"
+        primary-text-color: "#eef1f3"
+        secondary-text-color: "#98a0a6"
+        text-primary-color: "#ffffff"
+        disabled-text-color: "#5f676d"
+        success-color: "#43b97b"
+        warning-color: "#e6a03f"
+        error-color: "#d76161"
+        info-color: "#4aa9ee"
+        prism-surface: "#16191c"
+        prism-surface-2: "#1e2226"
+        prism-text-primary: "#eef1f3"
+        prism-text-secondary: "#98a0a6"
+        prism-border: "rgba(255,255,255,0.09)"
+        prism-good: "#43b97b"
+        prism-warn: "#e6a03f"
+        prism-bad: "#d76161"
+        app-header-background-color: "#16191c"
+        app-header-text-color: "#eef1f3"
+        sidebar-background-color: "#121619"
+        # ── Accent (blue) ──
+        prism-accent: "#4aa9ee"
+        primary-color: "#4aa9ee"
+        accent-color: "#4aa9ee"
+        paper-item-icon-active-color: "#4aa9ee"
+        state-icon-active-color: "#4aa9ee"
+        switch-checked-color: "#4aa9ee"
+
+# ── Accent variants — reuse the flat base, swap only the accent ──────────
+
+Prism Emerald:
+  <<: *prism-shared
+  modes:
+    light:
+      <<: *flat-light
+      prism-accent: "#2fa36a"
+      primary-color: "#2fa36a"
+      accent-color: "#2fa36a"
+      paper-item-icon-active-color: "#2fa36a"
+      state-icon-active-color: "#2fa36a"
+      switch-checked-color: "#2fa36a"
+    dark:
+      <<: *flat-dark
+      prism-accent: "#3fbb7d"
+      primary-color: "#3fbb7d"
+      accent-color: "#3fbb7d"
+      paper-item-icon-active-color: "#3fbb7d"
+      state-icon-active-color: "#3fbb7d"
+      switch-checked-color: "#3fbb7d"
+
+Prism Amber:
+  <<: *prism-shared
+  modes:
+    light:
+      <<: *flat-light
+      prism-accent: "#e0922e"
+      primary-color: "#e0922e"
+      accent-color: "#e0922e"
+      paper-item-icon-active-color: "#e0922e"
+      state-icon-active-color: "#e0922e"
+      switch-checked-color: "#e0922e"
+    dark:
+      <<: *flat-dark
+      prism-accent: "#eaa246"
+      primary-color: "#eaa246"
+      accent-color: "#eaa246"
+      paper-item-icon-active-color: "#eaa246"
+      state-icon-active-color: "#eaa246"
+      switch-checked-color: "#eaa246"
+
+Prism Violet:
+  <<: *prism-shared
+  modes:
+    light:
+      <<: *flat-light
+      prism-accent: "#7c62d6"
+      primary-color: "#7c62d6"
+      accent-color: "#7c62d6"
+      paper-item-icon-active-color: "#7c62d6"
+      state-icon-active-color: "#7c62d6"
+      switch-checked-color: "#7c62d6"
+    dark:
+      <<: *flat-dark
+      prism-accent: "#9683e0"
+      primary-color: "#9683e0"
+      accent-color: "#9683e0"
+      paper-item-icon-active-color: "#9683e0"
+      state-icon-active-color: "#9683e0"
+      switch-checked-color: "#9683e0"
+
+Prism Slate:
+  <<: *prism-shared
+  modes:
+    light:
+      <<: *flat-light
+      prism-accent: "#556370"
+      primary-color: "#556370"
+      accent-color: "#556370"
+      paper-item-icon-active-color: "#556370"
+      state-icon-active-color: "#556370"
+      switch-checked-color: "#556370"
+    dark:
+      <<: *flat-dark
+      prism-accent: "#8b98a4"
+      primary-color: "#8b98a4"
+      accent-color: "#8b98a4"
+      paper-item-icon-active-color: "#8b98a4"
+      state-icon-active-color: "#8b98a4"
+      switch-checked-color: "#8b98a4"

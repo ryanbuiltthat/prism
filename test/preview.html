@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prism — Card Preview</title>
+<style>
+  /* Prism design tokens (mirrors themes/prism.yaml) applied at :root so the
+     shadow-DOM cards pick them up exactly as they would under the HA theme. */
+  :root {
+    --prism-radius: 18px; --prism-gap: 16px; --prism-shadow: none;
+    --prism-accent: #3aa0e8;
+    --prism-surface: #ffffff; --prism-surface-2: #f1f4f6;
+    --prism-text-primary: #15181a; --prism-text-secondary: #6b7280;
+    --prism-border: rgba(20,24,27,.08);
+    --prism-good: #3aa76d; --prism-warn: #e0922e; --prism-bad: #c64b4b;
+    --paper-font-body1_-_font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color-scheme: light;
+  }
+  body.dark {
+    --prism-accent: #4aa9ee;
+    --prism-surface: #16191c; --prism-surface-2: #1e2226;
+    --prism-text-primary: #eef1f3; --prism-text-secondary: #98a0a6;
+    --prism-border: rgba(255,255,255,.09);
+    --prism-good: #43b97b; --prism-warn: #e6a03f; --prism-bad: #d76161;
+    color-scheme: dark;
+  }
+  body {
+    margin: 0; padding: 28px; font-family: var(--paper-font-body1_-_font-family);
+    background: var(--prism-surface-2);
+    transition: background .2s;
+  }
+  body.dark { background: #0e1113; }
+  h1 { font-size: 18px; color: var(--prism-text-primary); margin: 0 0 4px; }
+  p  { color: var(--prism-text-secondary); margin: 0 0 20px; font-size: 13px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+  button {
+    font: 500 13px/1 var(--paper-font-body1_-_font-family); cursor: pointer;
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--prism-border);
+    background: var(--prism-surface); color: var(--prism-text-primary);
+  }
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    max-width: 1100px;
+  }
+  .wide { grid-column: 1 / -1; }
+  /* Minimal stub for ha-icon so cards lay out (no MDI font here). */
+  ha-icon { display: inline-block; width: 20px; height: 20px; border-radius: 5px;
+            background: currentColor; opacity: .85; }
+</style>
+</head>
+<body>
+  <h1>Prism — Card Preview</h1>
+  <p>Offline mock (fake states + history). Toggle theme and accent to sanity-check both modes.</p>
+  <div class="toolbar">
+    <button id="theme">Toggle light / dark</button>
+    <button data-accent="#3aa0e8">Blue</button>
+    <button data-accent="#2fa36a">Emerald</button>
+    <button data-accent="#e0922e">Amber</button>
+    <button data-accent="#7c62d6">Violet</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    // ── Mock hass ────────────────────────────────────────────────────
+    const now = Date.now();
+    function walk(base, spread, n) {
+      const pts = []; let v = base;
+      for (let i = 0; i < n; i++) {
+        v += (Math.random() - 0.5) * spread;
+        pts.push({ s: v.toFixed(2), lu: (now / 1000) - (n - i) * 300 });
+      }
+      return pts;
+    }
+    const HIST = {
+      'sensor.house_power': walk(650, 180, 120),
+      'sensor.grid_power': walk(1200, 400, 120),
+      'sensor.battery_soc': walk(64, 6, 120),
+      'sensor.cpu_temperature': walk(58, 8, 120),
+      'sensor.energy_today': walk(12, 1.2, 120),
+    };
+    const hass = {
+      themes: { darkMode: false },
+      states: {
+        'sensor.house_power':    { state: '712',  attributes: { friendly_name: 'House Power', unit_of_measurement: 'W' } },
+        'sensor.grid_power':     { state: '1340', attributes: { friendly_name: 'Grid Power', unit_of_measurement: 'W' } },
+        'sensor.battery_soc':    { state: '64',   attributes: { friendly_name: 'Battery', unit_of_measurement: '%' } },
+        'sensor.cpu_temperature':{ state: '58',   attributes: { friendly_name: 'CPU Temp', unit_of_measurement: '°C' } },
+        'sensor.energy_today':   { state: '12.4', attributes: { friendly_name: 'Energy Today', unit_of_measurement: 'kWh' } },
+      },
+      callWS(msg) {
+        const id = msg.entity_ids ? msg.entity_ids[0] : null;
+        return Promise.resolve({ [id]: HIST[id] || [] });
+      },
+    };
+
+    const CARDS = [
+      { type: 'prism-stat-card', cfg: { entity: 'sensor.house_power', icon: 'mdi:flash', sparkline: true, trend: true, accent: 'blue' } },
+      { type: 'prism-stat-card', cfg: { entity: 'sensor.energy_today', icon: 'mdi:lightning-bolt', decimals: 1, trend: true, accent: 'amber' } },
+      { type: 'prism-gauge-card', cfg: { entity: 'sensor.battery_soc', min: 0, max: 100, style: 'fill', segments: [{from:0,color:'red'},{from:20,color:'amber'},{from:50,color:'green'}] } },
+      { type: 'prism-gauge-card', cfg: { entity: 'sensor.cpu_temperature', min: 20, max: 90, style: 'bands', segments: [{from:20,color:'green'},{from:65,color:'amber'},{from:80,color:'red'}] } },
+      { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
+      { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
+    ];
+
+    function build() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (const c of CARDS) {
+        const el = document.createElement(c.type);
+        el.setConfig(c.cfg);
+        el.hass = hass;
+        if (c.wide) el.classList.add('wide');
+        grid.appendChild(el);
+      }
+    }
+
+    document.getElementById('theme').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      hass.themes.darkMode = document.body.classList.contains('dark');
+      build();
+    });
+    document.querySelectorAll('[data-accent]').forEach((b) =>
+      b.addEventListener('click', () => {
+        document.documentElement.style.setProperty('--prism-accent', b.dataset.accent);
+      })
+    );
+
+    // Load the bundle, then render.
+    const s = document.createElement('script');
+    s.src = '../prism.js';
+    s.onload = build;
+    document.head.appendChild(s);
+  </script>
+</body>
+</html>

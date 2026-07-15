@@ -1,0 +1,75 @@
+# Prism — example energy monitoring view.
+# Tuned for power (W) + energy (kWh) monitoring. Swap entity IDs to match
+# your setup (e.g. a KinCony / CT-clamp power monitor, or the HA Energy
+# integration's sensors).
+
+title: Energy
+views:
+  - title: Energy
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        cards:
+          - type: custom:prism-stat-card
+            entity: sensor.total_power
+            name: Total Power
+            icon: mdi:transmission-tower
+            unit: W
+            decimals: 0
+            trend: true
+            trend_hours: 1
+            sparkline: true
+            accent: blue
+
+          - type: custom:prism-stat-card
+            entity: sensor.solar_power
+            name: Solar
+            icon: mdi:solar-power
+            unit: W
+            decimals: 0
+            trend: true
+            sparkline: true
+            accent: amber
+
+          - type: custom:prism-stat-card
+            entity: sensor.grid_import_today
+            name: Grid Import Today
+            icon: mdi:home-import-outline
+            unit: kWh
+            decimals: 1
+            trend: true
+            invert_trend: true
+            accent: red
+
+      - type: grid
+        cards:
+          - type: custom:prism-gauge-card
+            entity: sensor.self_sufficiency
+            name: Self-Sufficiency
+            min: 0
+            max: 100
+            unit: "%"
+            style: fill
+            segments:
+              - { from: 0, color: red }
+              - { from: 40, color: amber }
+              - { from: 70, color: green }
+
+      - type: grid
+        column_span: 4
+        cards:
+          - type: custom:prism-sparkline-card
+            entity: sensor.total_power
+            name: Power — last 24h
+            hours: 24
+            style: area
+            show_minmax: true
+            accent: blue
+
+          - type: custom:prism-sparkline-card
+            entity: sensor.daily_energy
+            name: Energy — last 7d
+            hours: 168
+            style: line
+            accent: green

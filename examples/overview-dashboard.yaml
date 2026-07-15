@@ -1,0 +1,63 @@
+# Prism — example overview view (sections layout).
+# Paste into a dashboard in raw-config mode and swap the entity IDs.
+# Requires the prism.js resource to be registered (see README).
+
+title: Overview
+views:
+  - title: Home
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: custom:prism-stat-card
+            entity: sensor.house_power
+            name: House Power
+            icon: mdi:flash
+            trend: true
+            trend_hours: 3
+            sparkline: true
+            accent: blue
+
+          - type: custom:prism-stat-card
+            entity: sensor.energy_today
+            name: Energy Today
+            icon: mdi:lightning-bolt
+            decimals: 1
+            trend: true
+            accent: amber
+
+      - type: grid
+        cards:
+          - type: custom:prism-gauge-card
+            entity: sensor.battery_soc
+            name: Battery
+            min: 0
+            max: 100
+            style: fill
+            segments:
+              - { from: 0, color: red }
+              - { from: 20, color: amber }
+              - { from: 50, color: green }
+
+          - type: custom:prism-gauge-card
+            entity: sensor.cpu_temperature
+            name: CPU Temp
+            min: 20
+            max: 90
+            style: bands
+            segments:
+              - { from: 20, color: green }
+              - { from: 65, color: amber }
+              - { from: 80, color: red }
+
+      - type: grid
+        column_span: 3
+        cards:
+          - type: custom:prism-sparkline-card
+            entity: sensor.grid_power
+            name: Grid Power
+            hours: 24
+            style: area
+            show_minmax: true
+            accent: teal
