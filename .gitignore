@@ -12,3 +12,6 @@ npm-debug.log*
 # Local scratch
 *.local
 /tmp/
+
+# Test render artifacts
+test/shot-*.png

@@ -1,0 +1,28 @@
+// Real-browser render check: load preview.html, collect console errors,
+// screenshot light + dark. Run: node test/shot.js
+'use strict';
+const path = require('path');
+const { chromium } = require('playwright');
+
+(async () => {
+  const url = 'file://' + path.join(__dirname, 'preview.html').replace(/\\/g, '/');
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1180, height: 1000 } });
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+
+  await page.goto(url);
+  await page.waitForTimeout(600); // let history promises + render settle
+  const cards = await page.locator('prism-power-card').count();
+  await page.screenshot({ path: path.join(__dirname, 'shot-light.png'), fullPage: true });
+
+  await page.click('#theme');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(__dirname, 'shot-dark.png'), fullPage: true });
+
+  await browser.close();
+  console.log(`power-cards rendered: ${cards}`);
+  console.log(errors.length ? 'CONSOLE ERRORS:\n' + errors.join('\n') : 'no console errors');
+  process.exit(errors.length ? 1 : 0);
+})();
