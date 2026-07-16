@@ -1,5 +1,8 @@
 # Prism
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![GitHub release](https://img.shields.io/github/v/release/ryanbuiltthat/prism?sort=semver)](https://github.com/ryanbuiltthat/prism/releases)
+
 **A flat, minimal, data-first design system for Home Assistant** — a theme plus a
 growing set of custom cards built for clean statistics, energy monitoring, and
 data display.
@@ -40,9 +43,23 @@ The shared `PrismUI` runtime is built to grow — more cards may follow.
 
 ## Installation
 
-### 1. Cards (frontend resource)
+### Option A — HACS (recommended, for the cards)
 
-Copy **`prism.js`** into your HA `config/www/` folder, then add it as a resource:
+Prism isn't in the default HACS store yet, so add it as a **custom repository**:
+
+1. **HACS -> 3-dot menu (top right) -> Custom repositories**
+2. Repository: `ryanbuiltthat/prism` &nbsp;·&nbsp; Type: **Dashboard** &nbsp;·&nbsp; **Add**
+3. Open **Prism** in the list -> **Download**, then pick a version. HACS adds
+   `prism.js` as a dashboard resource for you.
+4. Hard-refresh your browser (Ctrl/Cmd + Shift + R).
+
+HACS installs the **cards** (this repo registers as a Lovelace plugin). The
+**theme** is a separate file — install it with step 2 below.
+
+### Option B — Manual
+
+**1. Cards (frontend resource)** — copy **`prism.js`** into your HA `config/www/`
+folder, then add it as a resource:
 
 **Settings -> Dashboards -> (3-dot menu) -> Resources -> Add resource**
 - URL: `/local/prism.js`
