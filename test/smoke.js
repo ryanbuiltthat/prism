@@ -99,7 +99,7 @@ check('parses compact history', async () => {});
     ['prism-bar-card', { entities: ['sensor.x'], max: 100, segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'fill', segments: [{ from: 0, color: 'green' }, { from: 80, color: 'red' }] }],
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', icon: 'mdi:water', segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }] }],
-    ['prism-entities-card', { title: 'Room', secondary: 'last-changed', entities: ['sensor.x', 'light.x', { entity: 'light.x', name: 'Forced', toggle: false }] }],
+    ['prism-entities-card', { title: 'Room', secondary: 'last-changed', entities: ['sensor.x', { entity: 'light.x', use_area: true }, { entity: 'light.x', name: 'Temp', secondary: 'sensor.x' }] }],
     ['prism-entities-card', { entities: ['sensor.x'], show_icons: false, state_color: false }],
   ];
   for (const [tag, cfg] of cards) {

@@ -203,14 +203,24 @@ Flat **entity list** — one row per entity with an icon, name, optional seconda
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
-| `entities` | list | — | **Required.** Each item is an entity id, or `{ entity, name?, icon?, secondary?, toggle? }`. |
+| `entities` | list | — | **Required.** Each item is an entity id, or an object (per-row keys below). |
 | `title` | string | — | Card header. |
 | `accent` | string | `theme` | Colour for active-state icons and toggles. |
 | `show_icons` | bool | `true` | Show the icon column. |
 | `state_color` | bool | `true` | Tint the icon with the accent when the entity is "on"/active. |
-| `secondary` | string | — | Default secondary line: `last-changed`, `last-updated`, or an attribute name. Overridable per row. |
+| `secondary` | string | — | Default secondary line for every row (see per-row `secondary`). |
 
-Per-row `toggle: true`/`false` forces or suppresses the toggle control regardless of domain. Numeric states show with their unit; other states are title-cased. Tap a row for more-info; toggles call `homeassistant.toggle` in place.
+**Per-row keys** (object form): `{ entity, name?, use_area?, icon?, secondary?, toggle? }`
+
+| Row key | Notes |
+|---------|-------|
+| `name` | Custom label. Overrides the friendly name (and `use_area`). |
+| `use_area` | `true` → label the row with the entity's **area** name instead of its friendly name. |
+| `icon` | `mdi:…` override. |
+| `secondary` | Row's secondary line: `last-changed`, `last-updated`, **another entity id** (shows that entity's state + unit), or an attribute name. |
+| `toggle` | `true`/`false` forces or suppresses the toggle control regardless of domain. |
+
+Numeric states show with their unit; other states are title-cased. Tap a row for more-info; toggles call `homeassistant.toggle` in place. In the visual editor, use the **↑ / ↓** buttons on each row to set the display order.
 
 ```yaml
 type: custom:prism-entities-card
@@ -221,7 +231,8 @@ entities:
   - light.living_room
   - switch.coffee_maker
   - { entity: binary_sensor.door, icon: mdi:door }
-  - { entity: sensor.humidity, name: Humidity, secondary: last-updated }
+  # Area-named climate row: temperature value, humidity underneath.
+  - { entity: sensor.lr_temperature, use_area: true, icon: mdi:thermometer, secondary: sensor.lr_humidity }
 ```
 
 ---

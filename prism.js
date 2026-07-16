@@ -1779,6 +1779,33 @@
   const domainOf = (id) => (id || '').split('.')[0];
   const titleCase = (s) => String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
+  // Area name for an entity: registry area_id, falling back to its device's.
+  // Uses the frontend registries (hass.entities/devices/areas); null if none.
+  function areaName(hass, entityId) {
+    const ent = hass.entities && hass.entities[entityId];
+    let areaId = ent && ent.area_id;
+    if (!areaId && ent && ent.device_id && hass.devices) {
+      const dev = hass.devices[ent.device_id];
+      areaId = dev && dev.area_id;
+    }
+    const area = areaId && hass.areas && hass.areas[areaId];
+    return area ? area.name : null;
+  }
+
+  // Is a secondary spec an entity id (domain.object) that exists?
+  const isEntityRef = (s, hass) => typeof s === 'string' && s.indexOf('.') > -1 && hass.states && hass.states[s];
+
+  // Compact display of an entity's state (+ unit), for secondary lines.
+  function stateDisplay(hass, entityId) {
+    const s = hass.states[entityId];
+    if (!s) return '';
+    const r = parseFloat(s.state);
+    const unit = s.attributes.unit_of_measurement || '';
+    if (isNaN(r)) return titleCase(s.state);
+    const dec = Math.abs(r) >= 100 ? 0 : Math.abs(r) >= 10 ? 1 : 2;
+    return `${window.PrismUI.fmtNumber(r, dec)}${unit ? ` ${unit}` : ''}`;
+  }
+
   function normRow(r) {
     if (typeof r === 'string') return { entity: r };
     return { ...r };
@@ -1807,11 +1834,24 @@
       cfg.entities = rows.map((r) => {
         const o = { entity: r.entity || '' };
         if (r.name) o.name = r.name;
+        else if (r.use_area) o.use_area = true;
         if (r.icon) o.icon = r.icon;
         if (r.secondary) o.secondary = r.secondary;
-        return r.name || r.icon || r.secondary ? o : (o.entity || o);
+        const bare = !r.name && !r.use_area && !r.icon && !r.secondary;
+        return bare ? (o.entity || o) : o;
       });
       this._fire(cfg);
+    }
+
+    // Reorder a row by +1 / -1 and re-render the editor.
+    _move(i, dir) {
+      const r = this._rows();
+      const j = i + dir;
+      if (j < 0 || j >= r.length) return;
+      const [item] = r.splice(i, 1);
+      r.splice(j, 0, item);
+      this._setRows(r);
+      this._rerender();
     }
 
     _rerender() {
@@ -1840,29 +1880,89 @@
       const rows = this._rows();
       const wrap = document.createElement('div');
       wrap.className = 'bars';
-      rows.forEach((row, i) => {
-        const box = document.createElement('div');
-        box.className = 'bar-row';
-        box.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => {
-          const r = this._rows(); r[i].entity = v; this._setRows(r);
-        }));
-        const sub = document.createElement('div');
-        sub.className = 'bar-sub';
-        sub.append(
-          this._tf('Name', row.name, (v) => { const r = this._rows(); r[i].name = v; this._setRows(r); }),
-          this._tf('Icon (mdi:…)', row.icon, (v) => { const r = this._rows(); r[i].icon = v; this._setRows(r); })
-        );
-        const rm = document.createElement('button');
-        rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
-        rm.addEventListener('click', () => { const r = this._rows(); r.splice(i, 1); this._setRows(r); this._rerender(); });
-        box.append(sub, rm);
-        wrap.appendChild(box);
-      });
+      rows.forEach((row, i) => wrap.appendChild(this._rowBox(row, i, rows.length)));
       const add = document.createElement('button');
       add.type = 'button'; add.className = 'add'; add.textContent = '+ Add entity';
       add.addEventListener('click', () => { const r = this._rows(); r.push({ entity: '' }); this._setRows(r); this._rerender(); });
       wrap.appendChild(add);
       return wrap;
+    }
+
+    _rowBox(row, i, total) {
+      const box = document.createElement('div');
+      box.className = 'bar-row';
+
+      // Main entity.
+      box.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => {
+        const r = this._rows(); r[i].entity = v; this._setRows(r);
+      }));
+
+      // Name source: friendly / area / custom (+ inline custom-name field).
+      const nameSrc = row.name ? 'custom' : row.use_area ? 'area' : 'friendly';
+      const nameTf = this._tf('Custom name', row.name, (v) => {
+        const r = this._rows(); r[i].name = v; delete r[i].use_area; this._setRows(r);
+      });
+      nameTf.style.display = nameSrc === 'custom' ? '' : 'none';
+      const nameSel = this._select('Name', [
+        { value: 'friendly', label: 'Friendly name' },
+        { value: 'area', label: 'Area name' },
+        { value: 'custom', label: 'Custom' },
+      ], nameSrc, (v) => {
+        const r = this._rows();
+        if (v === 'area') { delete r[i].name; r[i].use_area = true; nameTf.style.display = 'none'; }
+        else if (v === 'custom') {
+          delete r[i].use_area;
+          if (!r[i].name) r[i].name = P.friendlyName(this._hass, r[i].entity) || '';
+          nameTf.value = r[i].name; nameTf.style.display = '';
+        } else { delete r[i].name; delete r[i].use_area; nameTf.style.display = 'none'; }
+        this._setRows(r);
+      });
+      const nameRow = document.createElement('div'); nameRow.className = 'bar-sub';
+      nameRow.append(nameSel, nameTf);
+
+      // Icon + secondary source.
+      const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => { const r = this._rows(); r[i].icon = v; this._setRows(r); });
+      const sec = row.secondary || '';
+      const secIsEntity = sec.indexOf('.') > -1;
+      const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => {
+        const r = this._rows(); if (v) r[i].secondary = v; else delete r[i].secondary; this._setRows(r);
+      });
+      secPicker.style.display = secIsEntity ? '' : 'none';
+      const secSel = this._select('Secondary', [
+        { value: '', label: 'None' },
+        { value: 'last-changed', label: 'Last changed' },
+        { value: 'last-updated', label: 'Last updated' },
+        { value: '__entity__', label: 'Entity state' },
+      ], secIsEntity ? '__entity__' : sec, (v) => {
+        const r = this._rows();
+        if (v === '__entity__') {
+          secPicker.style.display = '';
+          if (secPicker.value) { r[i].secondary = secPicker.value; this._setRows(r); }
+        } else {
+          secPicker.style.display = 'none';
+          if (v) r[i].secondary = v; else delete r[i].secondary;
+          this._setRows(r);
+        }
+      });
+      const iconRow = document.createElement('div'); iconRow.className = 'bar-sub';
+      iconRow.append(iconTf, secSel);
+
+      // Actions: move up / down / remove.
+      const actions = document.createElement('div'); actions.className = 'row-actions';
+      const mv = (label, disabled, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'mv'; b.textContent = label; b.disabled = disabled;
+        b.setAttribute('aria-label', label === '↑' ? 'Move up' : 'Move down');
+        if (!disabled) b.addEventListener('click', fn);
+        return b;
+      };
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
+      rm.addEventListener('click', () => { const r = this._rows(); r.splice(i, 1); this._setRows(r); this._rerender(); });
+      actions.append(mv('↑', i === 0, () => this._move(i, -1)), mv('↓', i === total - 1, () => this._move(i, +1)), rm);
+
+      box.append(nameRow, iconRow, secPicker, actions);
+      return box;
     }
 
     _baseStyle() {
@@ -1871,8 +1971,12 @@
         .bars { display:flex; flex-direction:column; gap:14px; }
         .bar-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
         .bar-sub { display:flex; gap:8px; }
-        .bar-sub > .field { flex:1; }
-        .rm { align-self:flex-start; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
+        .bar-sub > .field { flex:1; min-width:0; }
+        .row-actions { display:flex; align-items:center; gap:8px; margin-top:2px; }
+        .mv { width:30px; height:30px; font:600 15px/1 inherit; cursor:pointer; color:var(--primary-text-color,#212121);
+              background:none; border:1px solid var(--divider-color,#ccc); border-radius:6px; }
+        .mv:disabled { opacity:.35; cursor:default; }
+        .rm { margin-left:auto; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
         .add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
       `;
       return style;
@@ -1944,7 +2048,11 @@
       const rowsHtml = c.entities.map(normRow).map((row, i) => {
         const st = hass.states[row.entity];
         const domain = domainOf(row.entity);
-        const name = row.name || (st ? st.attributes.friendly_name : row.entity);
+        const name = row.name
+          ? row.name
+          : row.use_area
+            ? (areaName(hass, row.entity) || (st ? st.attributes.friendly_name : row.entity))
+            : (st ? st.attributes.friendly_name : row.entity);
         const missing = !st;
         const raw = P.num(hass, row.entity);
         const isNum = !isNaN(raw);
@@ -1958,11 +2066,12 @@
           ? `<span class="ic" style="color:${iconColor}">${icon ? `<ha-icon icon="${P.esc(icon)}"></ha-icon>` : ''}</span>`
           : '';
 
-        // Secondary line.
+        // Secondary line: relative time, another entity's state, or an attribute.
         let secondary = '';
         const sk = row.secondary || c.secondary;
         if (sk === 'last-changed' && st) secondary = relTime(st.last_changed);
         else if (sk === 'last-updated' && st) secondary = relTime(st.last_updated);
+        else if (isEntityRef(sk, hass)) secondary = stateDisplay(hass, sk);
         else if (sk && st && st.attributes[sk] != null) secondary = String(st.attributes[sk]);
 
         // Right side: toggle control or state value.
