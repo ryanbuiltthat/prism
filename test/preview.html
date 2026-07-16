@@ -101,6 +101,7 @@
         'binary_sensor.door':    { state: 'off',  attributes: { friendly_name: 'Front Door', device_class: 'door' }, last_changed: new Date(now - 42 * 60000).toISOString() },
         'sensor.lr_temperature': { state: '21.4', attributes: { friendly_name: 'Living Room Temperature', unit_of_measurement: '°C', device_class: 'temperature' }, last_changed: new Date(now - 5 * 60000).toISOString() },
         'sensor.lr_humidity':    { state: '48',   attributes: { friendly_name: 'Living Room Humidity', unit_of_measurement: '%', device_class: 'humidity' } },
+        'light.desk':            { state: 'on',   attributes: { friendly_name: 'Desk Lamp', icon: 'mdi:desk-lamp', brightness: 178, supported_color_modes: ['rgb'], rgb_color: [255, 160, 70] } },
       },
       // Frontend registries (for area-name lookups).
       areas: { living_room: { area_id: 'living_room', name: 'Living Room' } },
@@ -115,10 +116,20 @@
         return Promise.resolve({ [id]: HIST[id] || [] });
       },
       callService(domain, service, data) {
-        // Optimistic toggle so the preview feels live.
+        // Optimistic state changes so the preview feels live.
         const id = data && data.entity_id;
-        if (service === 'toggle' && id && hass.states[id]) {
-          hass.states[id] = { ...hass.states[id], state: hass.states[id].state === 'on' ? 'off' : 'on', last_changed: new Date().toISOString() };
+        if (!id || !hass.states[id]) return Promise.resolve();
+        const cur = hass.states[id];
+        let next = null;
+        if (service === 'toggle') next = { state: cur.state === 'on' ? 'off' : 'on' };
+        else if (service === 'turn_off') next = { state: 'off' };
+        else if (service === 'turn_on') {
+          const attrs = { ...cur.attributes };
+          if (data.brightness_pct != null) attrs.brightness = Math.round((data.brightness_pct / 100) * 255);
+          next = { state: 'on', attributes: attrs };
+        }
+        if (next) {
+          hass.states[id] = { ...cur, ...next, attributes: next.attributes || cur.attributes, last_changed: new Date().toISOString() };
           build();
         }
         return Promise.resolve();
@@ -142,6 +153,9 @@
         { entity: 'sensor.lr_temperature', use_area: true, icon: 'mdi:thermometer', secondary: 'sensor.lr_humidity' },
         { entity: 'sensor.house_power', name: 'Power', icon: 'mdi:flash' },
       ] } },
+      { type: 'prism-switch-card', cfg: { entity: 'switch.coffee', name: 'Coffee Maker', icon: 'mdi:coffee', accent: 'orange', secondary: 'state' } },
+      { type: 'prism-light-card', cfg: { entity: 'light.desk', name: 'Desk Lamp' } },
+      { type: 'prism-light-card', cfg: { entity: 'light.living_room', name: 'Living Room', accent: 'amber' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

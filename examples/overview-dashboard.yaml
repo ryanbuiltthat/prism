@@ -79,6 +79,18 @@ views:
 
       - type: grid
         cards:
+          - type: custom:prism-light-card
+            entity: light.living_room
+            name: Living Room
+
+          - type: custom:prism-switch-card
+            entity: switch.coffee_maker
+            name: Coffee Maker
+            icon: mdi:coffee
+            accent: orange
+
+      - type: grid
+        cards:
           - type: custom:prism-entities-card
             title: Living Room
             secondary: last-changed

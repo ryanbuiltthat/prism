@@ -237,6 +237,47 @@ entities:
 
 ---
 
+## `custom:prism-switch-card`
+
+Flat **toggle tile** for a switch (or any toggleable entity). The icon chip fills with the accent when on. **Tap toggles; hold opens more-info.**
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `icon` | string | entity/domain icon | `mdi:` override. |
+| `secondary` | string | `state` | Secondary line: `state`, `last-changed`, `last-updated`, or `''` for none. |
+
+Works with `switch`, `input_boolean`, `fan`, `light`, `automation`, `script`, `humidifier`, `siren` — anything `homeassistant.toggle` accepts.
+
+```yaml
+type: custom:prism-switch-card
+entity: switch.coffee_maker
+name: Coffee Maker
+icon: mdi:coffee
+accent: orange
+```
+
+---
+
+## `custom:prism-light-card`
+
+Flat **light tile** with a drag brightness slider. Tap the icon to toggle, hold for more-info. Drag the slider (or focus it and use arrow keys) to set brightness. The chip and slider adopt the bulb's current colour.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `icon` | string | entity icon / `mdi:lightbulb` | `mdi:` override. |
+| `slider` | bool | `true` | Show the brightness slider (only for dimmable lights). |
+| `use_color` | bool | `true` | Tint the chip/slider with the bulb's `rgb_color`; falls back to `accent`. |
+
+Non-dimmable lights render as a plain toggle tile (no slider). Brightness is sent as `brightness_pct` via `light.turn_on`; dragging to 0 calls `light.turn_off`.
+
+```yaml
+type: custom:prism-light-card
+entity: light.desk_lamp
+name: Desk Lamp
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -250,5 +291,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Linear gauge | 2 | 6 |
 | Bar | 1 + one per entity | 6 |
 | Entities | 1 + one per entity | 6 |
+| Switch | 2 | 3 |
+| Light | 2 | 4 |
 
 You can override with `grid_options` per card.

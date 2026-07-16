@@ -13,6 +13,8 @@ FILES=(
   "src/prism-bar-card.js"
   "src/prism-linear-gauge-card.js"
   "src/prism-entities-card.js"
+  "src/prism-switch-card.js"
+  "src/prism-light-card.js"
 )
 
 {

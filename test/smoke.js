@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -55,6 +55,7 @@ const hass = {
   states: {
     'sensor.x': { state: '61.5', attributes: { friendly_name: 'Test', unit_of_measurement: '%' }, last_changed: new Date(now - 3600000).toISOString(), last_updated: new Date(now - 60000).toISOString() },
     'light.x': { state: 'on', attributes: { friendly_name: 'Lamp' }, last_changed: new Date(now - 120000).toISOString() },
+    'light.dim': { state: 'on', attributes: { friendly_name: 'Desk', brightness: 128, supported_color_modes: ['rgb'], rgb_color: [255, 170, 80] } },
   },
   callService: () => {},
   callWS: () => Promise.resolve({ 'sensor.x': hist }),
@@ -101,9 +102,12 @@ check('parses compact history', async () => {});
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', icon: 'mdi:water', segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }] }],
     ['prism-entities-card', { title: 'Room', secondary: 'last-changed', entities: ['sensor.x', { entity: 'light.x', use_area: true }, { entity: 'light.x', name: 'Temp', secondary: 'sensor.x' }] }],
     ['prism-entities-card', { entities: ['sensor.x'], show_icons: false, state_color: false }],
+    ['prism-switch-card', { entity: 'light.x', secondary: 'last-changed' }],
+    ['prism-light-card', { entity: 'light.x' }],
+    ['prism-light-card', { entity: 'light.dim', use_color: true }],
   ];
   for (const [tag, cfg] of cards) {
-    check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : 'default')})`, () => {
+    check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {
       const Ctor = customElements.get(tag);
       const el = new Ctor();
       el.setConfig(cfg);
