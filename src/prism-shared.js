@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.1.0';
+  const VERSION = '0.1.1';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
