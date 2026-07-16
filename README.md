@@ -19,6 +19,11 @@ Prism is two things working together:
 > hierarchy (one dominant value per tile), and **never a bare number** — every
 > card carries context via a trend, a sparkline, or severity bands.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/preview-dark.png">
+  <img alt="Prism cards — stat, gauge, sparkline, power, linear gauge, bar, and entities cards in a dashboard" src="docs/assets/preview-light.png">
+</picture>
+
 ---
 
 ## Cards
