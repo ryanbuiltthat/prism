@@ -6,8 +6,9 @@ Common to all cards:
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
+| `title` | string | — | Optional card header shown above the content. Configurable in **every** card's visual editor (first field). |
 | `entity` | string | — | **Required** (except `prism-bar-card` and `prism-entities-card`, which take `entities`). |
-| `name` | string | entity friendly name | Card label. |
+| `name` | string | entity friendly name | Card / tile label (distinct from `title`). |
 | `unit` | string | entity unit | Override the displayed unit. |
 | `accent` | string | `theme` | `theme` (use `--prism-accent`), a preset name, or a hex like `#ff8800`. |
 
@@ -278,6 +279,63 @@ name: Desk Lamp
 
 ---
 
+## `custom:prism-climate-card`
+
+Flat **thermostat tile**: big target temperature with − / + steppers, the current temperature and HVAC action as context, and an accent that follows the mode (heating warm, cooling blue, else muted).
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `step` | number | entity `target_temp_step` or `0.5` | Amount each − / + press changes the target. |
+| `action_color` | bool | `true` | Colour the mode chip by `hvac_action` (heating/cooling/…); off uses `accent`. |
+
+Steppers call `climate.set_temperature` (clamped to the entity's min/max); tap the reading for more-info.
+
+```yaml
+type: custom:prism-climate-card
+entity: climate.living_room
+name: Thermostat
+```
+
+---
+
+## `custom:prism-cover-card`
+
+Flat **cover tile**: icon chip, name + state/position, and open / stop / close buttons (shown per the cover's `supported_features`). Covers that support positioning get a drag slider (100 = open, 0 = closed).
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `icon` | string | state-based | `mdi:` override. |
+| `slider` | bool | `true` | Show the position slider when the cover supports `set_cover_position`. |
+
+Buttons call `cover.open_cover` / `stop_cover` / `close_cover`; the slider calls `cover.set_cover_position`.
+
+```yaml
+type: custom:prism-cover-card
+entity: cover.living_room_blinds
+name: Blinds
+```
+
+---
+
+## `custom:prism-media-card`
+
+Flat **media-player tile**: album art (or an icon), what's playing, transport controls (previous / play-pause / next), and an optional volume slider. Controls appear per the player's `supported_features`.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `show_art` | bool | `true` | Show album art (`entity_picture`) when available. |
+| `show_volume` | bool | `true` | Show the volume slider when the player supports `volume_set`. |
+
+Transport calls `media_player.media_previous_track` / `media_play_pause` / `media_next_track`; the slider calls `media_player.volume_set`.
+
+```yaml
+type: custom:prism-media-card
+entity: media_player.living_room_speaker
+title: Now Playing
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -293,5 +351,8 @@ Cards implement `getGridOptions()` for the sections layout:
 | Entities | 1 + one per entity | 6 |
 | Switch | 2 | 3 |
 | Light | 2 | 4 |
+| Climate | 3 | 6 |
+| Cover | 3 | 4 |
+| Media | 3 | 6 |
 
 You can override with `grid_options` per card.

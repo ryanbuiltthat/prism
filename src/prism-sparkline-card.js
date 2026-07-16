@@ -15,6 +15,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
@@ -155,6 +156,7 @@
           .mm { display:flex; justify-content:space-between; font-size:11px; color:var(--_text-2); margin-top:4px; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <div class="head">
             <div class="name">${P.esc(name)}</div>
             ${c.show_value !== false ? `<div class="cur">${P.esc(cur)}<span class="cunit">${unit ? ' ' + P.esc(unit) : ''}</span></div>` : ''}

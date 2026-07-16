@@ -33,6 +33,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
@@ -153,6 +154,7 @@
         <style>
           ${P.TOKEN_STYLE}
           .prism-card { display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+          .prism-head { align-self:stretch; }
           svg { width:100%; max-width:230px; height:auto; display:block; }
           .track { stroke: var(--_surface-2); }
           .value { fill: var(--_text); font-weight:750; font-size:34px; letter-spacing:-.5px; }
@@ -162,6 +164,7 @@
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
             <path class="track" d="${track}" fill="none" stroke-width="${tw}" stroke-linecap="round"/>
             ${bandArcs}

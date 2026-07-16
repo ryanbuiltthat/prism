@@ -40,18 +40,10 @@
       this._fire(cfg);
     }
 
-    // Re-render fields and re-bind hass to any freshly created pickers.
-    _rerender() {
-      this._render();
-      if (this._hass) {
-        this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
-      }
-    }
-
     _fields(stack) {
       const c = this._config;
       stack.append(
-        this._tf('Title (optional)', c.title, (v) => this._patch('title', v)),
+        this._titleField(),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._tf('Minimum (baseline)', c.min, (v) => this._patch('min', v), { type: 'number' }),
@@ -60,46 +52,25 @@
         this._switch('Sort by value (descending)', !!c.sort, (v) => this._patch('sort', v)),
         this._switch('Show values', c.show_value !== false, (v) => this._patch('show_value', v)),
         this._section('Entities'),
-        this._barsField(),
+        this._listField({
+          get: () => this._bars(),
+          onChange: (bars) => this._setBars(bars),
+          addLabel: '+ Add entity',
+          row: (bar, i, set, body) => {
+            body.appendChild(this._picker(`Entity ${i + 1}`, bar.entity, (v) => set({ entity: v })));
+            const sub = document.createElement('div');
+            sub.className = 'plist-sub';
+            sub.append(
+              this._tf('Name', bar.name, (v) => set({ name: v })),
+              this._colorField(bar.color, (v) => set({ color: v }))
+            );
+            body.appendChild(sub);
+          },
+        }),
         this._section('Severity bands (optional)'),
         this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":1000,"color":"amber"},{"from":2000,"color":"red"}]. Colours a bar by its value unless the bar has its own colour.'),
         this._segmentsField(c.segments)
       );
-    }
-
-    _barsField() {
-      const bars = this._bars();
-      const wrap = document.createElement('div');
-      wrap.className = 'bars';
-
-      bars.forEach((bar, i) => {
-        const row = document.createElement('div');
-        row.className = 'bar-row';
-        row.appendChild(this._picker(`Entity ${i + 1}`, bar.entity, (v) => {
-          const b = this._bars(); b[i].entity = v; this._setBars(b);
-        }));
-        const sub = document.createElement('div');
-        sub.className = 'bar-sub';
-        sub.append(
-          this._tf('Name', bar.name, (v) => { const b = this._bars(); b[i].name = v; this._setBars(b); }),
-          this._colorField(bar.color, (v) => { const b = this._bars(); b[i].color = v; this._setBars(b); })
-        );
-        const rm = document.createElement('button');
-        rm.type = 'button';
-        rm.className = 'rm';
-        rm.textContent = 'Remove';
-        rm.addEventListener('click', () => { const b = this._bars(); b.splice(i, 1); this._setBars(b); this._rerender(); });
-        row.append(sub, rm);
-        wrap.appendChild(row);
-      });
-
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'add';
-      add.textContent = '+ Add entity';
-      add.addEventListener('click', () => { const b = this._bars(); b.push({ entity: '' }); this._setBars(b); this._rerender(); });
-      wrap.appendChild(add);
-      return wrap;
     }
 
     // Compact colour picker: "accent" (blank) or a custom colour.
@@ -149,19 +120,6 @@
       });
       wrap.appendChild(ta);
       return wrap;
-    }
-
-    _baseStyle() {
-      const style = super._baseStyle();
-      style.textContent += `
-        .bars { display:flex; flex-direction:column; gap:14px; }
-        .bar-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
-        .bar-sub { display:flex; gap:8px; }
-        .bar-sub > .field:first-child { flex:1; }
-        .rm { align-self:flex-start; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
-        .add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
-      `;
-      return style;
     }
   }
   customElements.define('prism-bar-card-editor', PrismBarCardEditor);

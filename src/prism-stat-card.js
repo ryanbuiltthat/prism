@@ -15,6 +15,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -153,6 +154,7 @@
           .spark { width:100%; height:40px; margin-top:auto; padding-top:10px; display:block; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <div class="top">
             ${iconHtml}
             <div class="label">${P.esc(name)}</div>

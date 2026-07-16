@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.1.2';
+  const VERSION = '0.2.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -202,6 +202,29 @@
     if (!window.customCards.some((c) => c.type === entry.type)) {
       window.customCards.push(Object.assign({ preview: true }, entry));
     }
+  }
+
+  // ── Shared card-runtime helpers ───────────────────────────────────
+
+  // Tap vs. hold: a short press fires onTap; holding `ms` (default 500)
+  // fires onHold instead. Enter/Space also fire onTap (keyboard).
+  function bindTap(el, onTap, onHold, ms = 500) {
+    let timer = null, held = false;
+    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    el.addEventListener('pointerdown', () => {
+      held = false; clear();
+      if (onHold) timer = setTimeout(() => { held = true; onHold(); }, ms);
+    });
+    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
+    el.addEventListener('pointerleave', clear);
+    el.addEventListener('pointercancel', clear);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
+  }
+
+  // Optional card header markup — every card renders this from `config.title`.
+  // Uses the shared .prism-head / .prism-title styles in TOKEN_STYLE.
+  function titleHead(title) {
+    return title ? `<div class="prism-head"><div class="prism-title">${esc(title)}</div></div>` : '';
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -401,8 +424,87 @@
         .section { font:600 12px/1 var(--paper-font-body1_-_font-family, sans-serif); text-transform:uppercase; letter-spacing:.06em; color:var(--secondary-text-color,#757575); margin-top:8px; padding-top:12px; border-top:1px solid var(--divider-color,rgba(0,0,0,.08)); }
         .hint { font:400 11px/1.4 var(--paper-font-body1_-_font-family, sans-serif); color:var(--secondary-text-color,#757575); }
         ha-textfield, ha-entity-picker { width:100%; }
+        .plist { display:flex; flex-direction:column; gap:14px; }
+        .plist-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
+        .plist-body { display:flex; flex-direction:column; gap:8px; }
+        .plist-sub { display:flex; gap:8px; }
+        .plist-sub > .field { flex:1; min-width:0; }
+        .plist-actions { display:flex; align-items:center; gap:8px; margin-top:2px; }
+        .plist-mv { width:30px; height:30px; font:600 15px/1 inherit; cursor:pointer; color:var(--primary-text-color,#212121);
+              background:none; border:1px solid var(--divider-color,#ccc); border-radius:6px; }
+        .plist-mv:disabled { opacity:.35; cursor:default; }
+        .plist-rm { margin-left:auto; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
+        .plist-add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
       `;
       return style;
+    }
+
+    // A "Title (optional)" field bound to config.title — every card's header.
+    _titleField() {
+      return this._tf('Title (optional)', this._config.title, (v) => this._patch('title', v));
+    }
+
+    // Re-render the editor and re-bind hass to freshly created entity pickers.
+    _rerender() {
+      this._render();
+      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
+    }
+
+    // Generic dynamic list editor (add / remove / reorder rows).
+    //   get()        -> current array of normalized item objects
+    //   onChange(a)  -> called with the updated array
+    //   newItem()    -> a blank item to append (default { entity: '' })
+    //   row(item, i, set, body) -> append controls to `body`; call
+    //                  set(patch) to merge patch into item i and fire onChange
+    //   addLabel, reorder(bool)
+    _listField(opts) {
+      const items = opts.get();
+      const reorder = opts.reorder !== false;
+      const wrap = document.createElement('div');
+      wrap.className = 'plist';
+
+      items.forEach((item, i) => {
+        const box = document.createElement('div'); box.className = 'plist-row';
+        const body = document.createElement('div'); body.className = 'plist-body';
+        const set = (patch) => {
+          const cur = opts.get();
+          opts.onChange(cur.map((it, j) => (j === i ? { ...it, ...patch } : it)));
+        };
+        opts.row(item, i, set, body);
+
+        const actions = document.createElement('div'); actions.className = 'plist-actions';
+        if (reorder) {
+          const mv = (label, disabled, dir) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'plist-mv'; b.textContent = label; b.disabled = disabled;
+            b.setAttribute('aria-label', dir < 0 ? 'Move up' : 'Move down');
+            if (!disabled) b.addEventListener('click', () => {
+              const cur = opts.get(); const j = i + dir;
+              if (j < 0 || j >= cur.length) return;
+              const [m] = cur.splice(i, 1); cur.splice(j, 0, m);
+              opts.onChange(cur); this._rerender();
+            });
+            return b;
+          };
+          actions.append(mv('↑', i === 0, -1), mv('↓', i === items.length - 1, +1));
+        }
+        const rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'plist-rm'; rm.textContent = 'Remove';
+        rm.addEventListener('click', () => { const cur = opts.get(); cur.splice(i, 1); opts.onChange(cur); this._rerender(); });
+        actions.appendChild(rm);
+
+        box.append(body, actions);
+        wrap.appendChild(box);
+      });
+
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'plist-add'; add.textContent = opts.addLabel || '+ Add entity';
+      add.addEventListener('click', () => {
+        const cur = opts.get(); cur.push(opts.newItem ? opts.newItem() : { entity: '' });
+        opts.onChange(cur); this._rerender();
+      });
+      wrap.appendChild(add);
+      return wrap;
     }
 
     // Subclasses implement _fields(stack) to append their controls.
@@ -437,6 +539,8 @@
     downsample,
     sparklinePath,
     registerCard,
+    bindTap,
+    titleHead,
     PrismEditor,
   };
 
@@ -470,6 +574,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -608,6 +713,7 @@
           .spark { width:100%; height:40px; margin-top:auto; padding-top:10px; display:block; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <div class="top">
             ${iconHtml}
             <div class="label">${P.esc(name)}</div>
@@ -678,6 +784,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
@@ -798,6 +905,7 @@
         <style>
           ${P.TOKEN_STYLE}
           .prism-card { display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+          .prism-head { align-self:stretch; }
           svg { width:100%; max-width:230px; height:auto; display:block; }
           .track { stroke: var(--_surface-2); }
           .value { fill: var(--_text); font-weight:750; font-size:34px; letter-spacing:-.5px; }
@@ -807,6 +915,7 @@
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
             <path class="track" d="${track}" fill="none" stroke-width="${tw}" stroke-linecap="round"/>
             ${bandArcs}
@@ -856,6 +965,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
@@ -996,6 +1106,7 @@
           .mm { display:flex; justify-content:space-between; font-size:11px; color:var(--_text-2); margin-top:4px; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <div class="head">
             <div class="name">${P.esc(name)}</div>
             ${c.show_value !== false ? `<div class="cur">${P.esc(cur)}<span class="cunit">${unit ? ' ' + P.esc(unit) : ''}</span></div>` : ''}
@@ -1045,6 +1156,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Power entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['sensor'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -1252,6 +1364,7 @@
           .spark { width:100%; height:38px; display:block; margin-top:2px; }
         </style>
         <div class="prism-card">
+          ${P.titleHead(c.title)}
           <div class="top">
             ${iconHtml}
             <div class="label">${P.esc(name)}</div>
@@ -1336,18 +1449,10 @@
       this._fire(cfg);
     }
 
-    // Re-render fields and re-bind hass to any freshly created pickers.
-    _rerender() {
-      this._render();
-      if (this._hass) {
-        this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
-      }
-    }
-
     _fields(stack) {
       const c = this._config;
       stack.append(
-        this._tf('Title (optional)', c.title, (v) => this._patch('title', v)),
+        this._titleField(),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._tf('Minimum (baseline)', c.min, (v) => this._patch('min', v), { type: 'number' }),
@@ -1356,46 +1461,25 @@
         this._switch('Sort by value (descending)', !!c.sort, (v) => this._patch('sort', v)),
         this._switch('Show values', c.show_value !== false, (v) => this._patch('show_value', v)),
         this._section('Entities'),
-        this._barsField(),
+        this._listField({
+          get: () => this._bars(),
+          onChange: (bars) => this._setBars(bars),
+          addLabel: '+ Add entity',
+          row: (bar, i, set, body) => {
+            body.appendChild(this._picker(`Entity ${i + 1}`, bar.entity, (v) => set({ entity: v })));
+            const sub = document.createElement('div');
+            sub.className = 'plist-sub';
+            sub.append(
+              this._tf('Name', bar.name, (v) => set({ name: v })),
+              this._colorField(bar.color, (v) => set({ color: v }))
+            );
+            body.appendChild(sub);
+          },
+        }),
         this._section('Severity bands (optional)'),
         this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":1000,"color":"amber"},{"from":2000,"color":"red"}]. Colours a bar by its value unless the bar has its own colour.'),
         this._segmentsField(c.segments)
       );
-    }
-
-    _barsField() {
-      const bars = this._bars();
-      const wrap = document.createElement('div');
-      wrap.className = 'bars';
-
-      bars.forEach((bar, i) => {
-        const row = document.createElement('div');
-        row.className = 'bar-row';
-        row.appendChild(this._picker(`Entity ${i + 1}`, bar.entity, (v) => {
-          const b = this._bars(); b[i].entity = v; this._setBars(b);
-        }));
-        const sub = document.createElement('div');
-        sub.className = 'bar-sub';
-        sub.append(
-          this._tf('Name', bar.name, (v) => { const b = this._bars(); b[i].name = v; this._setBars(b); }),
-          this._colorField(bar.color, (v) => { const b = this._bars(); b[i].color = v; this._setBars(b); })
-        );
-        const rm = document.createElement('button');
-        rm.type = 'button';
-        rm.className = 'rm';
-        rm.textContent = 'Remove';
-        rm.addEventListener('click', () => { const b = this._bars(); b.splice(i, 1); this._setBars(b); this._rerender(); });
-        row.append(sub, rm);
-        wrap.appendChild(row);
-      });
-
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'add';
-      add.textContent = '+ Add entity';
-      add.addEventListener('click', () => { const b = this._bars(); b.push({ entity: '' }); this._setBars(b); this._rerender(); });
-      wrap.appendChild(add);
-      return wrap;
     }
 
     // Compact colour picker: "accent" (blank) or a custom colour.
@@ -1445,19 +1529,6 @@
       });
       wrap.appendChild(ta);
       return wrap;
-    }
-
-    _baseStyle() {
-      const style = super._baseStyle();
-      style.textContent += `
-        .bars { display:flex; flex-direction:column; gap:14px; }
-        .bar-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
-        .bar-sub { display:flex; gap:8px; }
-        .bar-sub > .field:first-child { flex:1; }
-        .rm { align-self:flex-start; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
-        .add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
-      `;
-      return style;
     }
   }
   customElements.define('prism-bar-card-editor', PrismBarCardEditor);
@@ -1608,6 +1679,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -1734,6 +1806,7 @@
           .ends { display:flex; justify-content:space-between; font-size:11px; font-weight:500; color:var(--_text-2); margin-top:-2px; }
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
+          ${P.titleHead(c.title)}
           <div class="top">
             <span class="name">${iconHtml}${P.esc(name)}</span>
             <span class="val">${P.esc(value)}${unit && has ? `<span class="u">${P.esc(unit)}</span>` : ''}</span>
@@ -1843,26 +1916,10 @@
       this._fire(cfg);
     }
 
-    // Reorder a row by +1 / -1 and re-render the editor.
-    _move(i, dir) {
-      const r = this._rows();
-      const j = i + dir;
-      if (j < 0 || j >= r.length) return;
-      const [item] = r.splice(i, 1);
-      r.splice(j, 0, item);
-      this._setRows(r);
-      this._rerender();
-    }
-
-    _rerender() {
-      this._render();
-      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
-    }
-
     _fields(stack) {
       const c = this._config;
       stack.append(
-        this._tf('Title (optional)', c.title, (v) => this._patch('title', v)),
+        this._titleField(),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show icons', c.show_icons !== false, (v) => this._patch('show_icons', v)),
         this._switch('Colour icon by state', c.state_color !== false, (v) => this._patch('state_color', v)),
@@ -1872,114 +1929,59 @@
           { value: 'last-updated', label: 'Last updated' },
         ], c.secondary || '', (v) => this._patch('secondary', v)),
         this._section('Entities'),
-        this._rowsField()
+        this._listField({
+          get: () => this._rows(),
+          onChange: (rows) => this._setRows(rows),
+          addLabel: '+ Add entity',
+          row: (row, i, set, body) => {
+            body.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => set({ entity: v })));
+
+            // Name source: friendly / area / custom (+ inline custom-name field).
+            const nameSrc = row.name ? 'custom' : row.use_area ? 'area' : 'friendly';
+            const nameTf = this._tf('Custom name', row.name, (v) => set({ name: v, use_area: undefined }));
+            nameTf.style.display = nameSrc === 'custom' ? '' : 'none';
+            const nameSel = this._select('Name', [
+              { value: 'friendly', label: 'Friendly name' },
+              { value: 'area', label: 'Area name' },
+              { value: 'custom', label: 'Custom' },
+            ], nameSrc, (v) => {
+              if (v === 'area') { nameTf.style.display = 'none'; set({ name: undefined, use_area: true }); }
+              else if (v === 'custom') {
+                const nm = row.name || P.friendlyName(this._hass, this._rows()[i].entity) || '';
+                nameTf.value = nm; nameTf.style.display = '';
+                set({ use_area: undefined, name: nm });
+              } else { nameTf.style.display = 'none'; set({ name: undefined, use_area: undefined }); }
+            });
+            const nameRow = document.createElement('div'); nameRow.className = 'plist-sub';
+            nameRow.append(nameSel, nameTf);
+
+            // Icon + secondary source.
+            const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => set({ icon: v }));
+            const sec = row.secondary || '';
+            const secIsEntity = sec.indexOf('.') > -1;
+            const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => set({ secondary: v || undefined }));
+            secPicker.style.display = secIsEntity ? '' : 'none';
+            const secSel = this._select('Secondary', [
+              { value: '', label: 'None' },
+              { value: 'last-changed', label: 'Last changed' },
+              { value: 'last-updated', label: 'Last updated' },
+              { value: '__entity__', label: 'Entity state' },
+            ], secIsEntity ? '__entity__' : sec, (v) => {
+              if (v === '__entity__') {
+                secPicker.style.display = '';
+                if (secPicker.value) set({ secondary: secPicker.value });
+              } else {
+                secPicker.style.display = 'none';
+                set({ secondary: v || undefined });
+              }
+            });
+            const iconRow = document.createElement('div'); iconRow.className = 'plist-sub';
+            iconRow.append(iconTf, secSel);
+
+            body.append(nameRow, iconRow, secPicker);
+          },
+        })
       );
-    }
-
-    _rowsField() {
-      const rows = this._rows();
-      const wrap = document.createElement('div');
-      wrap.className = 'bars';
-      rows.forEach((row, i) => wrap.appendChild(this._rowBox(row, i, rows.length)));
-      const add = document.createElement('button');
-      add.type = 'button'; add.className = 'add'; add.textContent = '+ Add entity';
-      add.addEventListener('click', () => { const r = this._rows(); r.push({ entity: '' }); this._setRows(r); this._rerender(); });
-      wrap.appendChild(add);
-      return wrap;
-    }
-
-    _rowBox(row, i, total) {
-      const box = document.createElement('div');
-      box.className = 'bar-row';
-
-      // Main entity.
-      box.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => {
-        const r = this._rows(); r[i].entity = v; this._setRows(r);
-      }));
-
-      // Name source: friendly / area / custom (+ inline custom-name field).
-      const nameSrc = row.name ? 'custom' : row.use_area ? 'area' : 'friendly';
-      const nameTf = this._tf('Custom name', row.name, (v) => {
-        const r = this._rows(); r[i].name = v; delete r[i].use_area; this._setRows(r);
-      });
-      nameTf.style.display = nameSrc === 'custom' ? '' : 'none';
-      const nameSel = this._select('Name', [
-        { value: 'friendly', label: 'Friendly name' },
-        { value: 'area', label: 'Area name' },
-        { value: 'custom', label: 'Custom' },
-      ], nameSrc, (v) => {
-        const r = this._rows();
-        if (v === 'area') { delete r[i].name; r[i].use_area = true; nameTf.style.display = 'none'; }
-        else if (v === 'custom') {
-          delete r[i].use_area;
-          if (!r[i].name) r[i].name = P.friendlyName(this._hass, r[i].entity) || '';
-          nameTf.value = r[i].name; nameTf.style.display = '';
-        } else { delete r[i].name; delete r[i].use_area; nameTf.style.display = 'none'; }
-        this._setRows(r);
-      });
-      const nameRow = document.createElement('div'); nameRow.className = 'bar-sub';
-      nameRow.append(nameSel, nameTf);
-
-      // Icon + secondary source.
-      const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => { const r = this._rows(); r[i].icon = v; this._setRows(r); });
-      const sec = row.secondary || '';
-      const secIsEntity = sec.indexOf('.') > -1;
-      const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => {
-        const r = this._rows(); if (v) r[i].secondary = v; else delete r[i].secondary; this._setRows(r);
-      });
-      secPicker.style.display = secIsEntity ? '' : 'none';
-      const secSel = this._select('Secondary', [
-        { value: '', label: 'None' },
-        { value: 'last-changed', label: 'Last changed' },
-        { value: 'last-updated', label: 'Last updated' },
-        { value: '__entity__', label: 'Entity state' },
-      ], secIsEntity ? '__entity__' : sec, (v) => {
-        const r = this._rows();
-        if (v === '__entity__') {
-          secPicker.style.display = '';
-          if (secPicker.value) { r[i].secondary = secPicker.value; this._setRows(r); }
-        } else {
-          secPicker.style.display = 'none';
-          if (v) r[i].secondary = v; else delete r[i].secondary;
-          this._setRows(r);
-        }
-      });
-      const iconRow = document.createElement('div'); iconRow.className = 'bar-sub';
-      iconRow.append(iconTf, secSel);
-
-      // Actions: move up / down / remove.
-      const actions = document.createElement('div'); actions.className = 'row-actions';
-      const mv = (label, disabled, fn) => {
-        const b = document.createElement('button');
-        b.type = 'button'; b.className = 'mv'; b.textContent = label; b.disabled = disabled;
-        b.setAttribute('aria-label', label === '↑' ? 'Move up' : 'Move down');
-        if (!disabled) b.addEventListener('click', fn);
-        return b;
-      };
-      const rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
-      rm.addEventListener('click', () => { const r = this._rows(); r.splice(i, 1); this._setRows(r); this._rerender(); });
-      actions.append(mv('↑', i === 0, () => this._move(i, -1)), mv('↓', i === total - 1, () => this._move(i, +1)), rm);
-
-      box.append(nameRow, iconRow, secPicker, actions);
-      return box;
-    }
-
-    _baseStyle() {
-      const style = super._baseStyle();
-      style.textContent += `
-        .bars { display:flex; flex-direction:column; gap:14px; }
-        .bar-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
-        .bar-sub { display:flex; gap:8px; }
-        .bar-sub > .field { flex:1; min-width:0; }
-        .row-actions { display:flex; align-items:center; gap:8px; margin-top:2px; }
-        .mv { width:30px; height:30px; font:600 15px/1 inherit; cursor:pointer; color:var(--primary-text-color,#212121);
-              background:none; border:1px solid var(--divider-color,#ccc); border-radius:6px; }
-        .mv:disabled { opacity:.35; cursor:default; }
-        .rm { margin-left:auto; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
-        .add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
-      `;
-      return style;
     }
   }
   customElements.define('prism-entities-card-editor', PrismEntitiesCardEditor);
@@ -2179,22 +2181,12 @@
     humidifier: 'mdi:air-humidifier', siren: 'mdi:bullhorn',
   };
 
-  // Tap vs. hold: hold (500ms) fires onHold, a short press fires onTap.
-  function bindTap(el, onTap, onHold) {
-    let timer = null, held = false;
-    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    el.addEventListener('pointerdown', () => { held = false; clear(); timer = setTimeout(() => { held = true; onHold(); }, 500); });
-    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
-    el.addEventListener('pointerleave', clear);
-    el.addEventListener('pointercancel', clear);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
-  }
-
   // ── Editor ────────────────────────────────────────────────────────
   class PrismSwitchCardEditor extends P.PrismEditor {
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['switch', 'input_boolean', 'fan', 'light', 'automation', 'script', 'humidifier', 'siren'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -2268,7 +2260,8 @@
       this.shadowRoot.innerHTML = `
         <style>
           ${P.TOKEN_STYLE}
-          .prism-card { display:flex; align-items:center; gap:14px; cursor:pointer; user-select:none; -webkit-user-select:none; }
+          .prism-card { display:flex; flex-direction:column; gap:10px; }
+          .tile { display:flex; align-items:center; gap:14px; cursor:pointer; user-select:none; -webkit-user-select:none; }
           .chip { --mdc-icon-size:24px; width:44px; height:44px; border-radius:50%; flex:none;
                   display:flex; align-items:center; justify-content:center; transition:background .2s, color .2s;
                   background:var(--_surface-2); color:var(--_text-2); }
@@ -2278,15 +2271,18 @@
           .sec { font-size:12px; font-weight:500; color:var(--_text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .sec.on { color:${accent}; }
         </style>
-        <div class="prism-card" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
-          <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
-          <div class="txt">
-            <span class="nm">${P.esc(name)}</span>
-            ${secondary ? `<span class="sec${on && sk === 'state' ? ' on' : ''}">${P.esc(secondary)}</span>` : ''}
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="tile" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
+            <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
+            <div class="txt">
+              <span class="nm">${P.esc(name)}</span>
+              ${secondary ? `<span class="sec${on && sk === 'state' ? ' on' : ''}">${P.esc(secondary)}</span>` : ''}
+            </div>
           </div>
         </div>`;
 
-      bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._toggle(), () => this._moreInfo());
+      P.bindTap(this.shadowRoot.querySelector('.tile'), () => this._toggle(), () => this._moreInfo());
     }
   }
 
@@ -2313,21 +2309,12 @@
 
   const DIMMABLE = ['brightness', 'color_temp', 'hs', 'xy', 'rgb', 'rgbw', 'rgbww'];
 
-  function bindTap(el, onTap, onHold) {
-    let timer = null, held = false;
-    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    el.addEventListener('pointerdown', () => { held = false; clear(); timer = setTimeout(() => { held = true; onHold(); }, 500); });
-    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
-    el.addEventListener('pointerleave', clear);
-    el.addEventListener('pointercancel', clear);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
-  }
-
   // ── Editor ────────────────────────────────────────────────────────
   class PrismLightCardEditor extends P.PrismEditor {
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Light entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['light'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -2439,6 +2426,7 @@
           .slider.dragging .fill { transition:none; }
         </style>
         <div class="prism-card">
+          ${P.titleHead(c.title)}
           <div class="head" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
             <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
             <div class="txt">
@@ -2449,7 +2437,7 @@
           ${sliderHtml}
         </div>`;
 
-      bindTap(this.shadowRoot.querySelector('.head'), () => this._toggle(), () => this._moreInfo());
+      P.bindTap(this.shadowRoot.querySelector('.head'), () => this._toggle(), () => this._moreInfo());
       if (canDim) this._bindSlider(this.shadowRoot.querySelector('.slider'));
     }
 
@@ -2501,5 +2489,558 @@
     type: 'prism-light-card',
     name: 'Prism Light Card',
     description: 'Flat light tile with a drag brightness slider and the bulb’s colour.',
+  });
+})();
+
+/* ===== src/prism-climate-card.js ===== */
+/**
+ * prism-climate-card
+ * Flat thermostat tile: big target temperature with − / + steppers, the
+ * current temperature and HVAC action as context, and an accent that
+ * follows the mode (heating warm, cooling blue, else muted). Tap the value
+ * for more-info.
+ *
+ * type: custom:prism-climate-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  const titleCase = (s) => String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+
+  // HVAC action → accent colour.
+  const ACTION_COLOR = {
+    heating: '#e8703a', cooling: '#3aa0e8', drying: '#e0922e',
+    fan: '#28b5a6', idle: null, off: null,
+  };
+  const MODE_ICON = {
+    heat: 'mdi:fire', cool: 'mdi:snowflake', heat_cool: 'mdi:sun-snowflake-variant',
+    auto: 'mdi:thermostat-auto', dry: 'mdi:water-percent', fan_only: 'mdi:fan', off: 'mdi:power',
+  };
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismClimateCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Climate entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['climate'] }),
+        this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
+        this._tf('Step (°) override', c.step, (v) => this._patch('step', v), { type: 'number' }),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._switch('Colour by HVAC action', c.action_color !== false, (v) => this._patch('action_color', v)),
+        this._hint('Steppers call climate.set_temperature; tap the reading for more-info.')
+      );
+    }
+  }
+  customElements.define('prism-climate-card-editor', PrismClimateCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismClimateCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-climate-card: `entity` is required.');
+      if (config.entity.split('.')[0] !== 'climate') throw new Error('prism-climate-card: entity must be a climate.');
+      this._config = { ...config };
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; this._render(); }
+
+    getCardSize() { return 3; }
+    getGridOptions() { return { rows: 3, columns: 6, min_rows: 2, min_columns: 3 }; }
+
+    static getConfigElement() { return document.createElement('prism-climate-card-editor'); }
+    static getStubConfig(hass) {
+      const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('climate.')) : 'climate.example';
+      return { entity: ent || 'climate.example' };
+    }
+
+    _accent(st) {
+      if (this._config.action_color !== false && st) {
+        const a = ACTION_COLOR[st.attributes.hvac_action];
+        if (a) return a;
+      }
+      return P.resolveAccent(this._config.accent);
+    }
+    _step(st) {
+      const s = Number(this._config.step) || (st && Number(st.attributes.target_temp_step));
+      return s > 0 ? s : 0.5;
+    }
+    _adjust(delta) {
+      const st = this._hass.states[this._config.entity];
+      if (!st || st.attributes.temperature == null || !this._hass.callService) return;
+      const min = Number(st.attributes.min_temp);
+      const max = Number(st.attributes.max_temp);
+      let t = Number(st.attributes.temperature) + delta;
+      if (isFinite(min)) t = Math.max(min, t);
+      if (isFinite(max)) t = Math.min(max, t);
+      t = Math.round(t * 10) / 10;
+      this._hass.callService('climate', 'set_temperature', { entity_id: this._config.entity, temperature: t });
+    }
+    _moreInfo() {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config;
+      const st = this._hass.states[c.entity];
+      const accent = this._accent(st);
+      const name = c.name || P.friendlyName(this._hass, c.entity);
+      const unit = (this._hass.config && this._hass.config.unit_system && this._hass.config.unit_system.temperature) || '°';
+      const target = st && st.attributes.temperature;
+      const current = st && st.attributes.current_temperature;
+      const hasTarget = target != null && !isNaN(Number(target));
+      const mode = st ? st.state : 'unavailable';
+      const action = st && st.attributes.hvac_action;
+      const modeIcon = MODE_ICON[mode] || 'mdi:thermostat';
+
+      const sub = [];
+      if (current != null) sub.push(`Current ${P.esc(P.fmtNumber(Number(current), 1))}${P.esc(unit)}`);
+      sub.push(titleCase(action || mode));
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          .prism-card { display:flex; flex-direction:column; gap:12px; }
+          .top { display:flex; align-items:center; gap:14px; }
+          .mode { --mdc-icon-size:22px; width:40px; height:40px; border-radius:12px; flex:none;
+                  display:flex; align-items:center; justify-content:center; color:${accent};
+                  background:color-mix(in srgb, ${accent} 15%, transparent); }
+          .info { display:flex; flex-direction:column; gap:1px; min-width:0; }
+          .nm { font-size:14px; font-weight:650; color:var(--_text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .sub { font-size:12px; font-weight:500; color:var(--_text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .stepper { display:flex; align-items:center; justify-content:center; gap:18px; }
+          .btn { width:40px; height:40px; border-radius:50%; border:1px solid var(--_border); background:var(--_surface);
+                 color:var(--_text); font:400 24px/1 var(--_font); cursor:pointer; flex:none;
+                 display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s, color .15s; }
+          .btn:hover:not(:disabled) { border-color:${accent}; color:${accent}; }
+          .btn:disabled { opacity:.35; cursor:default; }
+          .target { min-width:80px; text-align:center; cursor:pointer; }
+          .target .t { font-size:32px; font-weight:750; letter-spacing:-.02em; color:var(--_text); line-height:1; }
+          .target .u { font-size:15px; font-weight:500; color:var(--_text-2); }
+          .target .lbl { font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--_text-2); margin-top:4px; }
+        </style>
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="top">
+            <div class="mode"><ha-icon icon="${modeIcon}"></ha-icon></div>
+            <div class="info">
+              <span class="nm">${P.esc(name)}</span>
+              <span class="sub">${sub.join(' · ')}</span>
+            </div>
+          </div>
+          <div class="stepper">
+            <button class="btn minus" aria-label="Lower target" ${hasTarget ? '' : 'disabled'}>−</button>
+            <div class="target" role="button" tabindex="0" aria-label="${P.esc(name)} target temperature">
+              <div><span class="t">${hasTarget ? P.esc(P.fmtNumber(Number(target), Number(target) % 1 ? 1 : 0)) : '—'}</span><span class="u">${P.esc(unit)}</span></div>
+              <div class="lbl">Target</div>
+            </div>
+            <button class="btn plus" aria-label="Raise target" ${hasTarget ? '' : 'disabled'}>+</button>
+          </div>
+        </div>`;
+
+      const step = this._step(st);
+      const minus = this.shadowRoot.querySelector('.minus');
+      const plus = this.shadowRoot.querySelector('.plus');
+      if (minus) minus.addEventListener('click', () => this._adjust(-step));
+      if (plus) plus.addEventListener('click', () => this._adjust(step));
+      P.bindTap(this.shadowRoot.querySelector('.target'), () => this._moreInfo(), () => this._moreInfo());
+    }
+  }
+
+  customElements.define('prism-climate-card', PrismClimateCard);
+  P.registerCard({
+    type: 'prism-climate-card',
+    name: 'Prism Climate Card',
+    description: 'Flat thermostat tile with − / + target steppers and mode-aware accent.',
+  });
+})();
+
+/* ===== src/prism-cover-card.js ===== */
+/**
+ * prism-cover-card
+ * Flat cover tile: icon chip, name + state/position, and open / stop /
+ * close buttons. If the cover supports positioning, a drag slider sets it
+ * (100 = open, 0 = closed). Tap the chip for more-info.
+ *
+ * type: custom:prism-cover-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  const titleCase = (s) => String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  // supported_features bits: OPEN 1, CLOSE 2, SET_POSITION 4, STOP 8.
+  const F = { OPEN: 1, CLOSE: 2, SET_POSITION: 4, STOP: 8 };
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismCoverCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Cover entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['cover'] }),
+        this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
+        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._switch('Show position slider', c.slider !== false, (v) => this._patch('slider', v)),
+        this._hint('Buttons call cover.open/close/stop; the slider calls cover.set_cover_position.')
+      );
+    }
+  }
+  customElements.define('prism-cover-card-editor', PrismCoverCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismCoverCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+      this._dragging = false;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-cover-card: `entity` is required.');
+      if (config.entity.split('.')[0] !== 'cover') throw new Error('prism-cover-card: entity must be a cover.');
+      this._config = { slider: true, ...config };
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; if (!this._dragging) this._render(); }
+
+    getCardSize() { return 3; }
+    getGridOptions() { return { rows: 3, columns: 4, min_rows: 2, min_columns: 3 }; }
+
+    static getConfigElement() { return document.createElement('prism-cover-card-editor'); }
+    static getStubConfig(hass) {
+      const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('cover.')) : 'cover.example';
+      return { entity: ent || 'cover.example' };
+    }
+
+    _feat(st, bit) {
+      const sf = st && st.attributes.supported_features;
+      return sf == null ? true : (sf & bit) !== 0;
+    }
+    _svc(service) {
+      if (this._hass?.callService) this._hass.callService('cover', service, { entity_id: this._config.entity });
+    }
+    _setPos(pos) {
+      if (this._hass?.callService) this._hass.callService('cover', 'set_cover_position', { entity_id: this._config.entity, position: pos });
+    }
+    _moreInfo() {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config;
+      const st = this._hass.states[c.entity];
+      const accent = P.resolveAccent(c.accent);
+      const name = c.name || P.friendlyName(this._hass, c.entity);
+      const state = st ? st.state : 'unavailable';
+      const pos = st && st.attributes.current_position;
+      const hasPos = pos != null && !isNaN(Number(pos));
+      const closed = state === 'closed' || (hasPos && Number(pos) === 0);
+      const open = state === 'open' || (hasPos && Number(pos) === 100);
+      const icon = c.icon || (st && st.attributes.icon) ||
+        (state.includes('garage') ? 'mdi:garage' : closed ? 'mdi:window-shutter' : 'mdi:window-shutter-open');
+      const sub = hasPos ? `${titleCase(state)} · ${Math.round(Number(pos))}%` : titleCase(state);
+      const canSlide = c.slider !== false && hasPos && this._feat(st, F.SET_POSITION);
+
+      const sliderHtml = canSlide ? `
+        <div class="slider" role="slider" tabindex="0" aria-label="Position"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Number(pos))}">
+          <div class="fill" style="width:${Math.round(Number(pos))}%;background:${accent};"></div>
+        </div>` : '';
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          .prism-card { display:flex; flex-direction:column; gap:12px; }
+          .row { display:flex; align-items:center; gap:14px; }
+          .chip { --mdc-icon-size:22px; width:40px; height:40px; border-radius:12px; flex:none; cursor:pointer;
+                  display:flex; align-items:center; justify-content:center; color:${accent};
+                  background:color-mix(in srgb, ${accent} 15%, transparent); }
+          .info { display:flex; flex-direction:column; gap:1px; min-width:0; }
+          .nm { font-size:14px; font-weight:650; color:var(--_text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .sub { font-size:12px; font-weight:500; color:var(--_text-2); }
+          .btns { display:flex; gap:6px; margin-left:auto; }
+          .btn { width:36px; height:36px; border-radius:9px; border:1px solid var(--_border); background:var(--_surface);
+                 color:var(--_text); --mdc-icon-size:20px; cursor:pointer; flex:none;
+                 display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s, color .15s; }
+          .btn:hover:not(:disabled) { border-color:${accent}; color:${accent}; }
+          .btn:disabled { opacity:.35; cursor:default; }
+          .slider { position:relative; height:14px; border-radius:7px; background:var(--_surface-2);
+                    overflow:hidden; cursor:pointer; touch-action:none; }
+          .slider:focus-visible { outline:2px solid ${accent}; outline-offset:2px; }
+          .fill { position:absolute; top:0; bottom:0; left:0; border-radius:7px; transition:width .12s ease-out; }
+          .slider.dragging .fill { transition:none; }
+        </style>
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="row">
+            <div class="chip" role="button" tabindex="0" aria-label="${P.esc(name)}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
+            <div class="info">
+              <span class="nm">${P.esc(name)}</span>
+              <span class="sub">${P.esc(sub)}</span>
+            </div>
+            <div class="btns">
+              ${this._feat(st, F.OPEN) ? `<button class="btn op" aria-label="Open" ${open ? 'disabled' : ''}><ha-icon icon="mdi:arrow-up"></ha-icon></button>` : ''}
+              ${this._feat(st, F.STOP) ? `<button class="btn sp" aria-label="Stop"><ha-icon icon="mdi:stop"></ha-icon></button>` : ''}
+              ${this._feat(st, F.CLOSE) ? `<button class="btn cl" aria-label="Close" ${closed ? 'disabled' : ''}><ha-icon icon="mdi:arrow-down"></ha-icon></button>` : ''}
+            </div>
+          </div>
+          ${sliderHtml}
+        </div>`;
+
+      const q = (s) => this.shadowRoot.querySelector(s);
+      const op = q('.op'), sp = q('.sp'), cl = q('.cl');
+      if (op) op.addEventListener('click', () => this._svc('open_cover'));
+      if (sp) sp.addEventListener('click', () => this._svc('stop_cover'));
+      if (cl) cl.addEventListener('click', () => this._svc('close_cover'));
+      P.bindTap(q('.chip'), () => this._moreInfo(), () => this._moreInfo());
+      if (canSlide) this._bindSlider(q('.slider'), accent);
+    }
+
+    _bindSlider(el, accent) {
+      const fill = el.querySelector('.fill');
+      const pctAt = (clientX) => {
+        const r = el.getBoundingClientRect();
+        return Math.round(P.clamp((clientX - r.left) / (r.width || 1), 0, 1) * 100);
+      };
+      const paint = (pct) => { fill.style.width = `${pct}%`; el.setAttribute('aria-valuenow', String(pct)); };
+      let pending = 0;
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); this._dragging = true; el.classList.add('dragging');
+        el.setPointerCapture(e.pointerId); pending = pctAt(e.clientX); paint(pending);
+      });
+      el.addEventListener('pointermove', (e) => { if (this._dragging) { pending = pctAt(e.clientX); paint(pending); } });
+      const end = () => { if (!this._dragging) return; this._dragging = false; el.classList.remove('dragging'); this._setPos(pending); };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+      el.addEventListener('keydown', (e) => {
+        const cur = Number(el.getAttribute('aria-valuenow')) || 0;
+        let next = cur;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = P.clamp(cur + 5, 0, 100);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = P.clamp(cur - 5, 0, 100);
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = 100;
+        else return;
+        e.preventDefault(); paint(next); this._setPos(next);
+      });
+    }
+  }
+
+  customElements.define('prism-cover-card', PrismCoverCard);
+  P.registerCard({
+    type: 'prism-cover-card',
+    name: 'Prism Cover Card',
+    description: 'Flat cover tile with open / stop / close and an optional position slider.',
+  });
+})();
+
+/* ===== src/prism-media-card.js ===== */
+/**
+ * prism-media-card
+ * Flat media-player tile: album art (or an icon), what's playing, transport
+ * controls (previous / play-pause / next), and an optional volume slider.
+ * Tap the art for more-info.
+ *
+ * type: custom:prism-media-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  const titleCase = (s) => String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  // media_player supported_features: PAUSE 1, VOLUME_SET 4, PREVIOUS 16,
+  // NEXT 32, PLAY 16384.
+  const F = { PAUSE: 1, VOLUME_SET: 4, PREVIOUS: 16, NEXT: 32, PLAY: 16384 };
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismMediaCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Media player (required)', c.entity, (v) => this._patch('entity', v), { domains: ['media_player'] }),
+        this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._switch('Show album art', c.show_art !== false, (v) => this._patch('show_art', v)),
+        this._switch('Show volume slider', c.show_volume !== false, (v) => this._patch('show_volume', v)),
+        this._hint('Transport calls media_player.media_*; the slider calls media_player.volume_set.')
+      );
+    }
+  }
+  customElements.define('prism-media-card-editor', PrismMediaCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismMediaCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+      this._dragging = false;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-media-card: `entity` is required.');
+      if (config.entity.split('.')[0] !== 'media_player') throw new Error('prism-media-card: entity must be a media_player.');
+      this._config = { show_art: true, show_volume: true, ...config };
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; if (!this._dragging) this._render(); }
+
+    getCardSize() { return 3; }
+    getGridOptions() { return { rows: 3, columns: 6, min_rows: 3, min_columns: 4 }; }
+
+    static getConfigElement() { return document.createElement('prism-media-card-editor'); }
+    static getStubConfig(hass) {
+      const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('media_player.')) : 'media_player.example';
+      return { entity: ent || 'media_player.example' };
+    }
+
+    _feat(st, bit) {
+      const sf = st && st.attributes.supported_features;
+      return sf == null ? true : (sf & bit) !== 0;
+    }
+    _svc(service, data) {
+      if (this._hass?.callService) this._hass.callService('media_player', service, { entity_id: this._config.entity, ...data });
+    }
+    _moreInfo() {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config;
+      const st = this._hass.states[c.entity];
+      const accent = P.resolveAccent(c.accent);
+      const name = c.name || P.friendlyName(this._hass, c.entity);
+      const state = st ? st.state : 'unavailable';
+      const playing = state === 'playing';
+      const a = st ? st.attributes : {};
+      const title = a.media_title || (st && !['idle', 'off', 'unavailable', 'standby'].includes(state) ? name : titleCase(state));
+      const sub = a.media_artist || a.media_series_title || a.app_name || a.source || (a.media_title ? name : '');
+      const art = c.show_art !== false && a.entity_picture ? a.entity_picture : null;
+      const vol = a.volume_level;
+      const hasVol = c.show_volume !== false && vol != null && this._feat(st, F.VOLUME_SET);
+      const volPct = Math.round((Number(vol) || 0) * 100);
+
+      const artHtml = art
+        ? `<div class="art" role="button" tabindex="0" aria-label="${P.esc(name)}" style="background-image:url('${P.esc(art)}')"></div>`
+        : `<div class="art icon" role="button" tabindex="0" aria-label="${P.esc(name)}"><ha-icon icon="mdi:speaker"></ha-icon></div>`;
+
+      const volHtml = hasVol ? `
+        <div class="vol">
+          <ha-icon class="vic" icon="mdi:volume-medium"></ha-icon>
+          <div class="slider" role="slider" tabindex="0" aria-label="Volume"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="${volPct}">
+            <div class="fill" style="width:${volPct}%;background:${accent};"></div>
+          </div>
+        </div>` : '';
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          .prism-card { display:flex; flex-direction:column; gap:12px; }
+          .row { display:flex; align-items:center; gap:14px; }
+          .art { width:52px; height:52px; border-radius:10px; flex:none; cursor:pointer; background-size:cover;
+                 background-position:center; background-color:var(--_surface-2); }
+          .art.icon { --mdc-icon-size:26px; color:var(--_text-2); display:flex; align-items:center; justify-content:center; }
+          .info { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+          .nm { font-size:14px; font-weight:650; color:var(--_text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .sub { font-size:12px; font-weight:500; color:var(--_text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .transport { display:flex; align-items:center; gap:6px; }
+          .tb { width:34px; height:34px; border-radius:50%; border:none; background:none; color:var(--_text);
+                --mdc-icon-size:22px; cursor:pointer; flex:none; display:flex; align-items:center; justify-content:center; }
+          .tb:hover { color:${accent}; }
+          .tb.play { width:44px; height:44px; --mdc-icon-size:26px; background:${accent}; color:#fff; }
+          .vol { display:flex; align-items:center; gap:10px; }
+          .vic { --mdc-icon-size:18px; color:var(--_text-2); flex:none; }
+          .slider { position:relative; flex:1; height:12px; border-radius:6px; background:var(--_surface-2);
+                    overflow:hidden; cursor:pointer; touch-action:none; }
+          .slider:focus-visible { outline:2px solid ${accent}; outline-offset:2px; }
+          .fill { position:absolute; top:0; bottom:0; left:0; border-radius:6px; transition:width .12s ease-out; }
+          .slider.dragging .fill { transition:none; }
+        </style>
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="row">
+            ${artHtml}
+            <div class="info">
+              <span class="nm">${P.esc(title)}</span>
+              ${sub ? `<span class="sub">${P.esc(sub)}</span>` : ''}
+            </div>
+            <div class="transport">
+              ${this._feat(st, F.PREVIOUS) ? `<button class="tb prev" aria-label="Previous"><ha-icon icon="mdi:skip-previous"></ha-icon></button>` : ''}
+              <button class="tb play" aria-label="Play/pause"><ha-icon icon="${playing ? 'mdi:pause' : 'mdi:play'}"></ha-icon></button>
+              ${this._feat(st, F.NEXT) ? `<button class="tb next" aria-label="Next"><ha-icon icon="mdi:skip-next"></ha-icon></button>` : ''}
+            </div>
+          </div>
+          ${volHtml}
+        </div>`;
+
+      const q = (s) => this.shadowRoot.querySelector(s);
+      const prev = q('.prev'), play = q('.play'), next = q('.next');
+      if (prev) prev.addEventListener('click', () => this._svc('media_previous_track'));
+      if (play) play.addEventListener('click', () => this._svc('media_play_pause'));
+      if (next) next.addEventListener('click', () => this._svc('media_next_track'));
+      P.bindTap(q('.art'), () => this._moreInfo(), () => this._moreInfo());
+      if (hasVol) this._bindSlider(q('.slider'), accent);
+    }
+
+    _bindSlider(el, accent) {
+      const fill = el.querySelector('.fill');
+      const pctAt = (clientX) => {
+        const r = el.getBoundingClientRect();
+        return Math.round(P.clamp((clientX - r.left) / (r.width || 1), 0, 1) * 100);
+      };
+      const paint = (pct) => { fill.style.width = `${pct}%`; el.setAttribute('aria-valuenow', String(pct)); };
+      let pending = 0;
+      const commit = () => this._svc('volume_set', { volume_level: P.clamp(pending / 100, 0, 1) });
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); this._dragging = true; el.classList.add('dragging');
+        el.setPointerCapture(e.pointerId); pending = pctAt(e.clientX); paint(pending);
+      });
+      el.addEventListener('pointermove', (e) => { if (this._dragging) { pending = pctAt(e.clientX); paint(pending); } });
+      const end = () => { if (!this._dragging) return; this._dragging = false; el.classList.remove('dragging'); commit(); };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+      el.addEventListener('keydown', (e) => {
+        const cur = Number(el.getAttribute('aria-valuenow')) || 0;
+        let next = cur;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = P.clamp(cur + 5, 0, 100);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = P.clamp(cur - 5, 0, 100);
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = 100;
+        else return;
+        e.preventDefault(); pending = next; paint(next); commit();
+      });
+    }
+  }
+
+  customElements.define('prism-media-card', PrismMediaCard);
+  P.registerCard({
+    type: 'prism-media-card',
+    name: 'Prism Media Card',
+    description: 'Flat media-player tile with album art, transport, and volume.',
   });
 })();

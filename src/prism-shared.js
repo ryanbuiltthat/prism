@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.1.2';
+  const VERSION = '0.2.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -198,6 +198,29 @@
     if (!window.customCards.some((c) => c.type === entry.type)) {
       window.customCards.push(Object.assign({ preview: true }, entry));
     }
+  }
+
+  // ── Shared card-runtime helpers ───────────────────────────────────
+
+  // Tap vs. hold: a short press fires onTap; holding `ms` (default 500)
+  // fires onHold instead. Enter/Space also fire onTap (keyboard).
+  function bindTap(el, onTap, onHold, ms = 500) {
+    let timer = null, held = false;
+    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    el.addEventListener('pointerdown', () => {
+      held = false; clear();
+      if (onHold) timer = setTimeout(() => { held = true; onHold(); }, ms);
+    });
+    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
+    el.addEventListener('pointerleave', clear);
+    el.addEventListener('pointercancel', clear);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
+  }
+
+  // Optional card header markup — every card renders this from `config.title`.
+  // Uses the shared .prism-head / .prism-title styles in TOKEN_STYLE.
+  function titleHead(title) {
+    return title ? `<div class="prism-head"><div class="prism-title">${esc(title)}</div></div>` : '';
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -397,8 +420,87 @@
         .section { font:600 12px/1 var(--paper-font-body1_-_font-family, sans-serif); text-transform:uppercase; letter-spacing:.06em; color:var(--secondary-text-color,#757575); margin-top:8px; padding-top:12px; border-top:1px solid var(--divider-color,rgba(0,0,0,.08)); }
         .hint { font:400 11px/1.4 var(--paper-font-body1_-_font-family, sans-serif); color:var(--secondary-text-color,#757575); }
         ha-textfield, ha-entity-picker { width:100%; }
+        .plist { display:flex; flex-direction:column; gap:14px; }
+        .plist-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
+        .plist-body { display:flex; flex-direction:column; gap:8px; }
+        .plist-sub { display:flex; gap:8px; }
+        .plist-sub > .field { flex:1; min-width:0; }
+        .plist-actions { display:flex; align-items:center; gap:8px; margin-top:2px; }
+        .plist-mv { width:30px; height:30px; font:600 15px/1 inherit; cursor:pointer; color:var(--primary-text-color,#212121);
+              background:none; border:1px solid var(--divider-color,#ccc); border-radius:6px; }
+        .plist-mv:disabled { opacity:.35; cursor:default; }
+        .plist-rm { margin-left:auto; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
+        .plist-add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
       `;
       return style;
+    }
+
+    // A "Title (optional)" field bound to config.title — every card's header.
+    _titleField() {
+      return this._tf('Title (optional)', this._config.title, (v) => this._patch('title', v));
+    }
+
+    // Re-render the editor and re-bind hass to freshly created entity pickers.
+    _rerender() {
+      this._render();
+      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
+    }
+
+    // Generic dynamic list editor (add / remove / reorder rows).
+    //   get()        -> current array of normalized item objects
+    //   onChange(a)  -> called with the updated array
+    //   newItem()    -> a blank item to append (default { entity: '' })
+    //   row(item, i, set, body) -> append controls to `body`; call
+    //                  set(patch) to merge patch into item i and fire onChange
+    //   addLabel, reorder(bool)
+    _listField(opts) {
+      const items = opts.get();
+      const reorder = opts.reorder !== false;
+      const wrap = document.createElement('div');
+      wrap.className = 'plist';
+
+      items.forEach((item, i) => {
+        const box = document.createElement('div'); box.className = 'plist-row';
+        const body = document.createElement('div'); body.className = 'plist-body';
+        const set = (patch) => {
+          const cur = opts.get();
+          opts.onChange(cur.map((it, j) => (j === i ? { ...it, ...patch } : it)));
+        };
+        opts.row(item, i, set, body);
+
+        const actions = document.createElement('div'); actions.className = 'plist-actions';
+        if (reorder) {
+          const mv = (label, disabled, dir) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'plist-mv'; b.textContent = label; b.disabled = disabled;
+            b.setAttribute('aria-label', dir < 0 ? 'Move up' : 'Move down');
+            if (!disabled) b.addEventListener('click', () => {
+              const cur = opts.get(); const j = i + dir;
+              if (j < 0 || j >= cur.length) return;
+              const [m] = cur.splice(i, 1); cur.splice(j, 0, m);
+              opts.onChange(cur); this._rerender();
+            });
+            return b;
+          };
+          actions.append(mv('↑', i === 0, -1), mv('↓', i === items.length - 1, +1));
+        }
+        const rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'plist-rm'; rm.textContent = 'Remove';
+        rm.addEventListener('click', () => { const cur = opts.get(); cur.splice(i, 1); opts.onChange(cur); this._rerender(); });
+        actions.appendChild(rm);
+
+        box.append(body, actions);
+        wrap.appendChild(box);
+      });
+
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'plist-add'; add.textContent = opts.addLabel || '+ Add entity';
+      add.addEventListener('click', () => {
+        const cur = opts.get(); cur.push(opts.newItem ? opts.newItem() : { entity: '' });
+        opts.onChange(cur); this._rerender();
+      });
+      wrap.appendChild(add);
+      return wrap;
     }
 
     // Subclasses implement _fields(stack) to append their controls.
@@ -433,6 +535,8 @@
     downsample,
     sparklinePath,
     registerCard,
+    bindTap,
+    titleHead,
     PrismEditor,
   };
 

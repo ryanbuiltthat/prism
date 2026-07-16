@@ -21,6 +21,7 @@
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Power entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['sensor'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -228,6 +229,7 @@
           .spark { width:100%; height:38px; display:block; margin-top:2px; }
         </style>
         <div class="prism-card">
+          ${P.titleHead(c.title)}
           <div class="top">
             ${iconHtml}
             <div class="label">${P.esc(name)}</div>

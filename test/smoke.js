@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -52,10 +52,14 @@ const now = Date.now();
 const hist = Array.from({ length: 30 }, (_, i) => ({ s: (60 + Math.sin(i / 3) * 8).toFixed(1), lu: now / 1000 - (30 - i) * 300 }));
 const hass = {
   themes: { darkMode: false },
+  config: { unit_system: { temperature: '°C' } },
   states: {
     'sensor.x': { state: '61.5', attributes: { friendly_name: 'Test', unit_of_measurement: '%' }, last_changed: new Date(now - 3600000).toISOString(), last_updated: new Date(now - 60000).toISOString() },
     'light.x': { state: 'on', attributes: { friendly_name: 'Lamp' }, last_changed: new Date(now - 120000).toISOString() },
     'light.dim': { state: 'on', attributes: { friendly_name: 'Desk', brightness: 128, supported_color_modes: ['rgb'], rgb_color: [255, 170, 80] } },
+    'climate.x': { state: 'heat', attributes: { friendly_name: 'Thermostat', temperature: 21, current_temperature: 19.5, hvac_action: 'heating', min_temp: 7, max_temp: 35, target_temp_step: 0.5 } },
+    'cover.x': { state: 'open', attributes: { friendly_name: 'Blinds', current_position: 70, supported_features: 15 } },
+    'media_player.x': { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Song', media_artist: 'Artist', volume_level: 0.4, supported_features: 16437 } },
   },
   callService: () => {},
   callWS: () => Promise.resolve({ 'sensor.x': hist }),
@@ -105,6 +109,9 @@ check('parses compact history', async () => {});
     ['prism-switch-card', { entity: 'light.x', secondary: 'last-changed' }],
     ['prism-light-card', { entity: 'light.x' }],
     ['prism-light-card', { entity: 'light.dim', use_color: true }],
+    ['prism-climate-card', { entity: 'climate.x', title: 'Living Room' }],
+    ['prism-cover-card', { entity: 'cover.x' }],
+    ['prism-media-card', { entity: 'media_player.x' }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {

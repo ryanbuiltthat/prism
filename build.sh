@@ -15,6 +15,9 @@ FILES=(
   "src/prism-entities-card.js"
   "src/prism-switch-card.js"
   "src/prism-light-card.js"
+  "src/prism-climate-card.js"
+  "src/prism-cover-card.js"
+  "src/prism-media-card.js"
 )
 
 {

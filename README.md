@@ -39,10 +39,13 @@ Prism is two things working together:
 | **Entities** | `custom:prism-entities-card` | Flat entity list: icon, name, secondary line, and a right-aligned value or a flat toggle for actionable entities. |
 | **Switch** | `custom:prism-switch-card` | Toggle tile: icon chip that fills when on, name, and state. Tap to switch, hold for more-info. |
 | **Light** | `custom:prism-light-card` | Light tile with a drag brightness slider that adopts the bulb's colour. Tap to toggle, hold for more-info. |
+| **Climate** | `custom:prism-climate-card` | Thermostat tile: target temp with − / + steppers, current temp + HVAC action, mode-aware accent. |
+| **Cover** | `custom:prism-cover-card` | Cover tile: open / stop / close buttons and an optional drag position slider. |
+| **Media** | `custom:prism-media-card` | Media-player tile: album art, what's playing, transport controls, and a volume slider. |
 
-All cards have a **visual editor**, an **accent picker** (theme token, preset, or
-custom hex), work in **light + dark**, are keyboard-focusable, and open
-more-info on tap.
+All cards have a **visual editor** with a configurable **title**, an **accent
+picker** (theme token, preset, or custom hex), work in **light + dark**, are
+keyboard-focusable, and open more-info on tap.
 
 The shared `PrismUI` runtime is built to grow — more cards may follow.
 

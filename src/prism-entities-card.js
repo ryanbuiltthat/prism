@@ -81,26 +81,10 @@
       this._fire(cfg);
     }
 
-    // Reorder a row by +1 / -1 and re-render the editor.
-    _move(i, dir) {
-      const r = this._rows();
-      const j = i + dir;
-      if (j < 0 || j >= r.length) return;
-      const [item] = r.splice(i, 1);
-      r.splice(j, 0, item);
-      this._setRows(r);
-      this._rerender();
-    }
-
-    _rerender() {
-      this._render();
-      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
-    }
-
     _fields(stack) {
       const c = this._config;
       stack.append(
-        this._tf('Title (optional)', c.title, (v) => this._patch('title', v)),
+        this._titleField(),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show icons', c.show_icons !== false, (v) => this._patch('show_icons', v)),
         this._switch('Colour icon by state', c.state_color !== false, (v) => this._patch('state_color', v)),
@@ -110,114 +94,59 @@
           { value: 'last-updated', label: 'Last updated' },
         ], c.secondary || '', (v) => this._patch('secondary', v)),
         this._section('Entities'),
-        this._rowsField()
+        this._listField({
+          get: () => this._rows(),
+          onChange: (rows) => this._setRows(rows),
+          addLabel: '+ Add entity',
+          row: (row, i, set, body) => {
+            body.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => set({ entity: v })));
+
+            // Name source: friendly / area / custom (+ inline custom-name field).
+            const nameSrc = row.name ? 'custom' : row.use_area ? 'area' : 'friendly';
+            const nameTf = this._tf('Custom name', row.name, (v) => set({ name: v, use_area: undefined }));
+            nameTf.style.display = nameSrc === 'custom' ? '' : 'none';
+            const nameSel = this._select('Name', [
+              { value: 'friendly', label: 'Friendly name' },
+              { value: 'area', label: 'Area name' },
+              { value: 'custom', label: 'Custom' },
+            ], nameSrc, (v) => {
+              if (v === 'area') { nameTf.style.display = 'none'; set({ name: undefined, use_area: true }); }
+              else if (v === 'custom') {
+                const nm = row.name || P.friendlyName(this._hass, this._rows()[i].entity) || '';
+                nameTf.value = nm; nameTf.style.display = '';
+                set({ use_area: undefined, name: nm });
+              } else { nameTf.style.display = 'none'; set({ name: undefined, use_area: undefined }); }
+            });
+            const nameRow = document.createElement('div'); nameRow.className = 'plist-sub';
+            nameRow.append(nameSel, nameTf);
+
+            // Icon + secondary source.
+            const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => set({ icon: v }));
+            const sec = row.secondary || '';
+            const secIsEntity = sec.indexOf('.') > -1;
+            const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => set({ secondary: v || undefined }));
+            secPicker.style.display = secIsEntity ? '' : 'none';
+            const secSel = this._select('Secondary', [
+              { value: '', label: 'None' },
+              { value: 'last-changed', label: 'Last changed' },
+              { value: 'last-updated', label: 'Last updated' },
+              { value: '__entity__', label: 'Entity state' },
+            ], secIsEntity ? '__entity__' : sec, (v) => {
+              if (v === '__entity__') {
+                secPicker.style.display = '';
+                if (secPicker.value) set({ secondary: secPicker.value });
+              } else {
+                secPicker.style.display = 'none';
+                set({ secondary: v || undefined });
+              }
+            });
+            const iconRow = document.createElement('div'); iconRow.className = 'plist-sub';
+            iconRow.append(iconTf, secSel);
+
+            body.append(nameRow, iconRow, secPicker);
+          },
+        })
       );
-    }
-
-    _rowsField() {
-      const rows = this._rows();
-      const wrap = document.createElement('div');
-      wrap.className = 'bars';
-      rows.forEach((row, i) => wrap.appendChild(this._rowBox(row, i, rows.length)));
-      const add = document.createElement('button');
-      add.type = 'button'; add.className = 'add'; add.textContent = '+ Add entity';
-      add.addEventListener('click', () => { const r = this._rows(); r.push({ entity: '' }); this._setRows(r); this._rerender(); });
-      wrap.appendChild(add);
-      return wrap;
-    }
-
-    _rowBox(row, i, total) {
-      const box = document.createElement('div');
-      box.className = 'bar-row';
-
-      // Main entity.
-      box.appendChild(this._picker(`Entity ${i + 1}`, row.entity, (v) => {
-        const r = this._rows(); r[i].entity = v; this._setRows(r);
-      }));
-
-      // Name source: friendly / area / custom (+ inline custom-name field).
-      const nameSrc = row.name ? 'custom' : row.use_area ? 'area' : 'friendly';
-      const nameTf = this._tf('Custom name', row.name, (v) => {
-        const r = this._rows(); r[i].name = v; delete r[i].use_area; this._setRows(r);
-      });
-      nameTf.style.display = nameSrc === 'custom' ? '' : 'none';
-      const nameSel = this._select('Name', [
-        { value: 'friendly', label: 'Friendly name' },
-        { value: 'area', label: 'Area name' },
-        { value: 'custom', label: 'Custom' },
-      ], nameSrc, (v) => {
-        const r = this._rows();
-        if (v === 'area') { delete r[i].name; r[i].use_area = true; nameTf.style.display = 'none'; }
-        else if (v === 'custom') {
-          delete r[i].use_area;
-          if (!r[i].name) r[i].name = P.friendlyName(this._hass, r[i].entity) || '';
-          nameTf.value = r[i].name; nameTf.style.display = '';
-        } else { delete r[i].name; delete r[i].use_area; nameTf.style.display = 'none'; }
-        this._setRows(r);
-      });
-      const nameRow = document.createElement('div'); nameRow.className = 'bar-sub';
-      nameRow.append(nameSel, nameTf);
-
-      // Icon + secondary source.
-      const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => { const r = this._rows(); r[i].icon = v; this._setRows(r); });
-      const sec = row.secondary || '';
-      const secIsEntity = sec.indexOf('.') > -1;
-      const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => {
-        const r = this._rows(); if (v) r[i].secondary = v; else delete r[i].secondary; this._setRows(r);
-      });
-      secPicker.style.display = secIsEntity ? '' : 'none';
-      const secSel = this._select('Secondary', [
-        { value: '', label: 'None' },
-        { value: 'last-changed', label: 'Last changed' },
-        { value: 'last-updated', label: 'Last updated' },
-        { value: '__entity__', label: 'Entity state' },
-      ], secIsEntity ? '__entity__' : sec, (v) => {
-        const r = this._rows();
-        if (v === '__entity__') {
-          secPicker.style.display = '';
-          if (secPicker.value) { r[i].secondary = secPicker.value; this._setRows(r); }
-        } else {
-          secPicker.style.display = 'none';
-          if (v) r[i].secondary = v; else delete r[i].secondary;
-          this._setRows(r);
-        }
-      });
-      const iconRow = document.createElement('div'); iconRow.className = 'bar-sub';
-      iconRow.append(iconTf, secSel);
-
-      // Actions: move up / down / remove.
-      const actions = document.createElement('div'); actions.className = 'row-actions';
-      const mv = (label, disabled, fn) => {
-        const b = document.createElement('button');
-        b.type = 'button'; b.className = 'mv'; b.textContent = label; b.disabled = disabled;
-        b.setAttribute('aria-label', label === '↑' ? 'Move up' : 'Move down');
-        if (!disabled) b.addEventListener('click', fn);
-        return b;
-      };
-      const rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
-      rm.addEventListener('click', () => { const r = this._rows(); r.splice(i, 1); this._setRows(r); this._rerender(); });
-      actions.append(mv('↑', i === 0, () => this._move(i, -1)), mv('↓', i === total - 1, () => this._move(i, +1)), rm);
-
-      box.append(nameRow, iconRow, secPicker, actions);
-      return box;
-    }
-
-    _baseStyle() {
-      const style = super._baseStyle();
-      style.textContent += `
-        .bars { display:flex; flex-direction:column; gap:14px; }
-        .bar-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
-        .bar-sub { display:flex; gap:8px; }
-        .bar-sub > .field { flex:1; min-width:0; }
-        .row-actions { display:flex; align-items:center; gap:8px; margin-top:2px; }
-        .mv { width:30px; height:30px; font:600 15px/1 inherit; cursor:pointer; color:var(--primary-text-color,#212121);
-              background:none; border:1px solid var(--divider-color,#ccc); border-radius:6px; }
-        .mv:disabled { opacity:.35; cursor:default; }
-        .rm { margin-left:auto; font:500 12px/1 inherit; cursor:pointer; color:var(--error-color,#c62828); background:none; border:none; padding:2px 0; }
-        .add { align-self:flex-start; font:600 13px/1 inherit; cursor:pointer; color:var(--primary-color,#3aa0e8); background:none; border:1px dashed var(--divider-color,#ccc); border-radius:8px; padding:10px 14px; }
-      `;
-      return style;
     }
   }
   customElements.define('prism-entities-card-editor', PrismEntitiesCardEditor);

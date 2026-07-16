@@ -30,22 +30,12 @@
     humidifier: 'mdi:air-humidifier', siren: 'mdi:bullhorn',
   };
 
-  // Tap vs. hold: hold (500ms) fires onHold, a short press fires onTap.
-  function bindTap(el, onTap, onHold) {
-    let timer = null, held = false;
-    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    el.addEventListener('pointerdown', () => { held = false; clear(); timer = setTimeout(() => { held = true; onHold(); }, 500); });
-    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
-    el.addEventListener('pointerleave', clear);
-    el.addEventListener('pointercancel', clear);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
-  }
-
   // ── Editor ────────────────────────────────────────────────────────
   class PrismSwitchCardEditor extends P.PrismEditor {
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['switch', 'input_boolean', 'fan', 'light', 'automation', 'script', 'humidifier', 'siren'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -119,7 +109,8 @@
       this.shadowRoot.innerHTML = `
         <style>
           ${P.TOKEN_STYLE}
-          .prism-card { display:flex; align-items:center; gap:14px; cursor:pointer; user-select:none; -webkit-user-select:none; }
+          .prism-card { display:flex; flex-direction:column; gap:10px; }
+          .tile { display:flex; align-items:center; gap:14px; cursor:pointer; user-select:none; -webkit-user-select:none; }
           .chip { --mdc-icon-size:24px; width:44px; height:44px; border-radius:50%; flex:none;
                   display:flex; align-items:center; justify-content:center; transition:background .2s, color .2s;
                   background:var(--_surface-2); color:var(--_text-2); }
@@ -129,15 +120,18 @@
           .sec { font-size:12px; font-weight:500; color:var(--_text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .sec.on { color:${accent}; }
         </style>
-        <div class="prism-card" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
-          <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
-          <div class="txt">
-            <span class="nm">${P.esc(name)}</span>
-            ${secondary ? `<span class="sec${on && sk === 'state' ? ' on' : ''}">${P.esc(secondary)}</span>` : ''}
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="tile" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
+            <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
+            <div class="txt">
+              <span class="nm">${P.esc(name)}</span>
+              ${secondary ? `<span class="sec${on && sk === 'state' ? ' on' : ''}">${P.esc(secondary)}</span>` : ''}
+            </div>
           </div>
         </div>`;
 
-      bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._toggle(), () => this._moreInfo());
+      P.bindTap(this.shadowRoot.querySelector('.tile'), () => this._toggle(), () => this._moreInfo());
     }
   }
 

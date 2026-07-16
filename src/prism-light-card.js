@@ -12,21 +12,12 @@
 
   const DIMMABLE = ['brightness', 'color_temp', 'hs', 'xy', 'rgb', 'rgbw', 'rgbww'];
 
-  function bindTap(el, onTap, onHold) {
-    let timer = null, held = false;
-    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    el.addEventListener('pointerdown', () => { held = false; clear(); timer = setTimeout(() => { held = true; onHold(); }, 500); });
-    el.addEventListener('pointerup', () => { clear(); if (!held) onTap(); });
-    el.addEventListener('pointerleave', clear);
-    el.addEventListener('pointercancel', clear);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
-  }
-
   // ── Editor ────────────────────────────────────────────────────────
   class PrismLightCardEditor extends P.PrismEditor {
     _fields(stack) {
       const c = this._config;
       stack.append(
+        this._titleField(),
         this._picker('Light entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['light'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
@@ -138,6 +129,7 @@
           .slider.dragging .fill { transition:none; }
         </style>
         <div class="prism-card">
+          ${P.titleHead(c.title)}
           <div class="head" role="button" tabindex="0" aria-pressed="${on ? 'true' : 'false'}" aria-label="${P.esc(name)}">
             <div class="chip${on ? ' on' : ''}"><ha-icon icon="${P.esc(icon)}"></ha-icon></div>
             <div class="txt">
@@ -148,7 +140,7 @@
           ${sliderHtml}
         </div>`;
 
-      bindTap(this.shadowRoot.querySelector('.head'), () => this._toggle(), () => this._moreInfo());
+      P.bindTap(this.shadowRoot.querySelector('.head'), () => this._toggle(), () => this._moreInfo());
       if (canDim) this._bindSlider(this.shadowRoot.querySelector('.slider'));
     }
 
