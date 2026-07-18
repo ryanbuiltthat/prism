@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -60,6 +60,8 @@ const hass = {
     'climate.x': { state: 'heat', attributes: { friendly_name: 'Thermostat', temperature: 21, current_temperature: 19.5, hvac_action: 'heating', min_temp: 7, max_temp: 35, target_temp_step: 0.5 } },
     'cover.x': { state: 'open', attributes: { friendly_name: 'Blinds', current_position: 70, supported_features: 15 } },
     'media_player.x': { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Song', media_artist: 'Artist', volume_level: 0.4, supported_features: 16437 } },
+    'weather.x': { state: 'windy', attributes: { friendly_name: 'Home', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h', temperature: 12 } },
+    'sensor.wind_dir': { state: 'NW', attributes: { friendly_name: 'Wind Dir' } },
   },
   callService: () => {},
   callWS: () => Promise.resolve({ 'sensor.x': hist }),
@@ -120,6 +122,8 @@ check('parses compact history', async () => {});
     ['prism-climate-card', { entity: 'climate.x', title: 'Living Room' }],
     ['prism-cover-card', { entity: 'cover.x' }],
     ['prism-media-card', { entity: 'media_player.x' }],
+    ['prism-wind-card', { entity: 'weather.x', title: 'Wind' }],
+    ['prism-wind-card', { entity: 'sensor.x', unit: 'm/s', direction_entity: 'sensor.wind_dir', gust_entity: 'sensor.x', animate: false }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {

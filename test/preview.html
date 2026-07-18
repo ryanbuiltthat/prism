@@ -105,6 +105,7 @@
         'climate.living_room':   { state: 'heat', attributes: { friendly_name: 'Living Room', temperature: 21, current_temperature: 19.5, hvac_action: 'heating', min_temp: 7, max_temp: 35, target_temp_step: 0.5 } },
         'cover.blinds':          { state: 'open', attributes: { friendly_name: 'Blinds', current_position: 70, supported_features: 15 } },
         'media_player.speaker':  { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Midnight City', media_artist: 'M83', volume_level: 0.4, supported_features: 16437 } },
+        'weather.home':          { state: 'windy', attributes: { friendly_name: 'Home', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h', temperature: 12 } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -176,6 +177,7 @@
       { type: 'prism-climate-card', cfg: { entity: 'climate.living_room', name: 'Thermostat' } },
       { type: 'prism-cover-card', cfg: { entity: 'cover.blinds', name: 'Blinds' } },
       { type: 'prism-media-card', cfg: { entity: 'media_player.speaker', title: 'Now Playing' }, wide: true },
+      { type: 'prism-wind-card', cfg: { entity: 'weather.home', title: 'Wind', accent: 'teal' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

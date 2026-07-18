@@ -43,6 +43,7 @@ Prism is two things working together:
 | **Climate** | `custom:prism-climate-card` | Thermostat tile: target temp with − / + steppers, current temp + HVAC action, mode-aware accent. |
 | **Cover** | `custom:prism-cover-card` | Cover tile: open / stop / close buttons and an optional drag position slider. |
 | **Media** | `custom:prism-media-card` | Media-player tile: album art, what's playing, transport controls, and a volume slider. |
+| **Wind** | `custom:prism-wind-card` | Wind tile: dominant speed, a flat compass rose with an accent direction arrow, Beaufort descriptor, gusts, and animated flat wind-streak accents that intensify with the wind. Reads a `weather.*` entity or individual sensors. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -124,6 +125,18 @@ entity: sensor.grid_power
 hours: 24
 style: area
 show_minmax: true
+```
+
+```yaml
+# Wind — reads a weather entity's wind attributes out of the box.
+type: custom:prism-wind-card
+entity: weather.home
+title: Wind
+accent: teal
+# Or wire up individual sensors instead of a weather entity:
+#   speed_entity: sensor.wind_speed
+#   direction_entity: sensor.wind_bearing   # degrees or a cardinal like NW
+#   gust_entity: sensor.wind_gust
 ```
 
 ```yaml
