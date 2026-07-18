@@ -391,6 +391,45 @@ title: Now Playing
 
 ---
 
+## `custom:prism-wind-card`
+
+Flat, data-first **wind tile**. The dominant value is wind speed; context comes from a **compass rose** whose accent arrow points to the direction the wind is coming *from* (with the cardinal in the middle), a **Beaufort descriptor** ("Fresh breeze"), **gusts**, and playful flat **wind-streak** accents that grow in number and speed with the wind.
+
+Reads a Home Assistant `weather.*` entity's `wind_speed` / `wind_bearing` / `wind_gust_speed` attributes out of the box, or point it at individual sensors.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | A `weather.*` entity (uses its wind attributes) **or** a wind-speed sensor. Required unless `speed_entity` is set. |
+| `speed_entity` | string | — | Wind-speed sensor (overrides `entity`'s speed). |
+| `direction_entity` | string | — | Wind-direction sensor — **degrees or a cardinal** like `NW`. |
+| `gust_entity` | string | — | Wind-gust sensor. |
+| `unit` | string | entity's unit / `km/h` | Speed-unit override (also used to normalise for the Beaufort scale: understands `km/h`, `m/s`, `mph`, `kn`). |
+| `show_gust` | bool | `true` | Show the gusts chip when a gust value is available. |
+| `animate` | bool | `true` | Animated wind-streak accents (respects `prefers-reduced-motion`). |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `accent` | string | `teal` | Colour for the compass arrow, cardinal, and wind streaks. |
+
+Tap opens more-info. The arrow points *to the source* (weathervane convention); the descriptor line reads e.g. "from the northwest · 315°".
+
+```yaml
+type: custom:prism-wind-card
+entity: weather.home
+title: Wind
+accent: teal
+```
+
+```yaml
+# From individual sensors instead of a weather entity:
+type: custom:prism-wind-card
+speed_entity: sensor.wind_speed
+direction_entity: sensor.wind_bearing
+gust_entity: sensor.wind_gust
+unit: mph
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -409,5 +448,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Climate | 3 | 6 |
 | Cover | 3 | 4 |
 | Media | 3 | 6 |
+| Wind | 3 | 6 |
 
 You can override with `grid_options` per card.

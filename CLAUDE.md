@@ -120,6 +120,26 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Wind card (v0.6.0)
+- Added **`prism-wind-card`** (`src/prism-wind-card.js`): flat, data-first wind
+  tile. Dominant wind-speed value; a flat **compass rose** with an accent arrow
+  pointing to the source bearing + the cardinal in the middle; a **Beaufort**
+  descriptor; a **gusts** chip; and animated flat **wind-streak** accents whose
+  count/speed scale with the Beaufort level (respects prefers-reduced-motion).
+  - Reads a `weather.*` entity (`wind_speed`/`wind_bearing`/`wind_gust_speed`/
+    `wind_speed_unit`) or individual `speed_entity`/`direction_entity`/
+    `gust_entity` sensors. Direction accepts degrees or a cardinal string.
+  - Helpers: `toKmh` (unit normalise for Beaufort), `beaufort`, `cardinalOf`/
+    `parseBearing` (16-point), `windPt` (compass polar). Now 14 cards.
+- Wired into build.sh / build.ps1 / smoke.js (weather fixture + 2 cases) /
+  preview.html (weather.home mock + demo). README table + quick-start; full
+  docs/cards.md section (so the auto doc-link anchor resolves) + sizing row.
+  VERSION 0.5.1 → 0.6.0.
+- Verified in real Chromium: NW compass + arrow, 24 km/h "Moderate breeze",
+  "from the northwest · 315°", gusts 41, 4 streaks, no console errors.
+- **Possible next:** more weather cards (temperature/humidity/forecast strip);
+  regenerate showcase images to include the wind card.
+
 ### 2026-07-18 — Automated release workflow
 - Added `.github/workflows/release.yml`: on push to `main` / manual dispatch it
   reads `VERSION` from `src/prism-shared.js` and, if no `v<VERSION>` release
