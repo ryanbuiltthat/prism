@@ -108,6 +108,25 @@ images.
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Filter card: group-by-area sub-headers (v0.5.0)
+- Added `group_by: area` to `prism-filter-card`: matches are bucketed under
+  area sub-headers (each with a per-group count). Named areas sort alphabetically
+  first, entities with no area fall into a "No area" bucket last
+  (`ungrouped_label` overrides the label). Works in both `list` and `chips`
+  layouts; the total count badge still shows the grand total.
+- Refactored the two inline row/chip builders into `rowHtml`/`chipHtml` closures
+  + a `bucketHtml` helper so flat and grouped paths share one renderer; new
+  `groupByArea(hass, ids, label)` helper. Global `.row`/`.chip`/`.tgl` event
+  binding still works across sections.
+- Editor: new "Group by" select. `getCardSize`/`getGridOptions` add `_groupCount`
+  for the sub-header rows.
+- Smoke (4 filter cases now cover grouping) + preview demo ("Lights by area") +
+  README updated; VERSION 0.4.0 → 0.5.0.
+- Verified in real Chromium: grouped card showed Living Room (1) / Study (1)
+  sub-headers with correct bucketing and total badge 2, no console errors.
+- **Possible next:** group_by domain; collapsible groups; regenerate showcase
+  images to include the grouped demo.
+
 ### 2026-07-18 — Filter card: chip/grid layout (v0.4.0)
 - Added a `layout` option to `prism-filter-card`: `list` (default, unchanged) or
   `chips` — a wrapping flex grid of rounded pills. Toggleable + active entities

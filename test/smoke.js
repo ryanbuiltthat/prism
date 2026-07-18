@@ -112,6 +112,8 @@ check('parses compact history', async () => {});
     ['prism-filter-card', { condition: 'exact', state_is: 'playing', show_count: false }],
     ['prism-filter-card', { title: 'Lights on', domain: 'light', condition: 'on', layout: 'chips' }],
     ['prism-filter-card', { domain: 'sensor', condition: 'numeric', operator: '>', value: 0, layout: 'chips' }],
+    ['prism-filter-card', { title: 'By area', domain: 'light', condition: 'on', group_by: 'area' }],
+    ['prism-filter-card', { domain: 'light', condition: 'on', group_by: 'area', layout: 'chips', ungrouped_label: 'Other' }],
     ['prism-switch-card', { entity: 'light.x', secondary: 'last-changed' }],
     ['prism-light-card', { entity: 'light.x' }],
     ['prism-light-card', { entity: 'light.dim', use_color: true }],
