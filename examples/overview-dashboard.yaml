@@ -120,6 +120,16 @@ views:
               - { entity: sensor.living_room_humidity, name: Humidity }
 
       - type: grid
+        cards:
+          # Smart card: auto-populates with every light that's on — no list to maintain.
+          - type: custom:prism-filter-card
+            title: Lights on
+            domain: light
+            condition: 'on'
+            secondary: area
+            accent: amber
+
+      - type: grid
         column_span: 3
         cards:
           - type: custom:prism-sparkline-card

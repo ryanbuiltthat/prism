@@ -37,6 +37,7 @@ Prism is two things working together:
 | **Linear Gauge** | `custom:prism-linear-gauge-card` | Horizontal gauge — one value on a linear scale with severity bands (`fill` bar or band strip + marker). |
 | **Bar** | `custom:prism-bar-card` | Horizontal bar chart comparing several entities on a shared scale, with per-bar colour, severity bands, and sorting. |
 | **Entities** | `custom:prism-entities-card` | Flat entity list: icon, name, secondary line, and a right-aligned value or a flat toggle for actionable entities. |
+| **Filter** | `custom:prism-filter-card` | *Smart* dynamic list: pick a domain + condition (e.g. "lights that are on") and the card fills itself in and re-populates as state changes. `list` or `chips` layout, optional group-by-area sub-headers, live match count, empty state, inline toggles. |
 | **Switch** | `custom:prism-switch-card` | Toggle tile: icon chip that fills when on, name, and state. Tap to switch, hold for more-info. |
 | **Light** | `custom:prism-light-card` | Light tile with a drag brightness slider that adopts the bulb's colour. Tap to toggle, hold for more-info. |
 | **Climate** | `custom:prism-climate-card` | Thermostat tile: target temp with − / + steppers, current temp + HVAC action, mode-aware accent. |
@@ -123,6 +124,21 @@ entity: sensor.grid_power
 hours: 24
 style: area
 show_minmax: true
+```
+
+```yaml
+# Smart card — every light that's currently on, no entity list to maintain.
+type: custom:prism-filter-card
+title: Lights on
+domain: light        # any domain; or use `domains: [light, switch]`
+condition: 'on'      # on | off | any | numeric | exact
+layout: list         # list (rows) | chips (wrapping grid of pills)
+group_by: area       # optional — bucket matches under area sub-headers
+secondary: area      # list only — show each entity's area on the second line
+accent: amber
+# Other conditions:
+#   condition: numeric   → operator: '>'   value: 50   (e.g. sensors above 50)
+#   condition: exact     → state_is: playing
 ```
 
 See [`examples/`](examples/) for full dashboards and [`docs/`](docs/) for the
