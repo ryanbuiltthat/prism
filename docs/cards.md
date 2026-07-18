@@ -238,6 +238,61 @@ entities:
 
 ---
 
+## `custom:prism-filter-card`
+
+A **smart, self-populating list**: instead of naming entities one by one, pick a **domain** (or several) and a **condition**, and the card renders every entity that currently matches — e.g. "all lights that are on". It re-populates automatically as state changes. (Takes a `domain`/`domains` + `condition`, not a fixed `entities` list.)
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `domain` | string | `any` | Entity type to match, e.g. `light`. Use `any` (or omit) for all domains. |
+| `domains` | list | — | Match several domains, e.g. `[light, switch]`. Overrides `domain`. |
+| `condition` | string | `on` | `on` (active) · `off` (inactive) · `any` · `numeric` · `exact`. |
+| `operator` | string | `>` | For `condition: numeric` — one of `>`, `>=`, `<`, `<=`, `=`, `!=`. |
+| `value` | number | — | For `condition: numeric` — the number to compare against. |
+| `state_is` | string | — | For `condition: exact` — match this exact state. |
+| `state_not` | string | — | For `condition: exact` — match any state except this one. |
+| `area` | string | — | Only include entities in this area (area id or name). |
+| `exclude` | list | — | Entity ids to always leave out. |
+| `sort` | string | `name` | `name` · `state` · `last-changed` · `none`. |
+| `max` | number | — | Cap the number of rows shown (`0`/omit = all). |
+| `layout` | string | `list` | `list` (rows) or `chips` (a wrapping grid of pills). |
+| `group_by` | string | — | `area` → bucket matches under per-area sub-headers (each with a count). |
+| `ungrouped_label` | string | `No area` | Label for the bucket of entities that have no area. |
+| `secondary` | string | — | List layout only: `state` · `area` · `last-changed` · `last-updated`. |
+| `show_icons` | bool | `true` | Show the icon column / chip icon. |
+| `state_color` | bool | `true` | Tint the icon with the accent when the entity is active. |
+| `show_toggle` | bool | `true` | Actionable rows/chips get an inline toggle. |
+| `show_count` | bool | `true` | Show the live match count in the header. |
+| `empty_text` | string | `Nothing matches` | Shown when no entity matches. |
+| `title` | string | — | Card header. |
+| `accent` | string | `theme` | Accent for active-state icons, toggles, filled chips, and the count badge. |
+
+Actionable domains (`light`, `switch`, `fan`, `input_boolean`, `humidifier`, `siren`) show an inline toggle; other entities show their value. **List:** tap a row for more-info, tap the toggle to switch. **Chips:** tap to toggle (or open more-info for non-toggle domains), hold for details; active toggleable entities fill with the accent.
+
+```yaml
+# Every light that's on, grouped by room.
+type: custom:prism-filter-card
+title: Lights on
+domain: light
+condition: 'on'
+group_by: area       # optional — area sub-headers with per-group counts
+layout: list         # or: chips
+accent: amber
+```
+
+```yaml
+# Any sensor reading above 50, as a chip grid.
+type: custom:prism-filter-card
+title: Running hot
+domain: sensor
+condition: numeric
+operator: '>'
+value: 50
+layout: chips
+```
+
+---
+
 ## `custom:prism-switch-card`
 
 Flat **toggle tile** for a switch (or any toggleable entity). The icon chip fills with the accent when on. **Tap toggles; hold opens more-info.**

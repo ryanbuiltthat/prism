@@ -108,6 +108,22 @@ images.
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Card-picker doc links + filter-card docs (v0.5.1)
+- HA has no supported API to add a named custom category (e.g. "Prism cards")
+  to the card picker — `window.customCards` only takes `type`/`name`/`preview`/
+  `description`/`documentationURL`, no group/category field. The practical way
+  to jump to Prism cards is the picker search: every card's `name` is prefixed
+  "Prism …", so typing `prism` filters to exactly the 13 cards.
+- Improved discoverability: `registerCard` now auto-sets a `documentationURL`
+  on every card (derived from its type via new `P.docsUrl(type)`), so each
+  Prism card shows a **Documentation** link on its picker tile. A card may
+  override the default. Anchors point at `docs/cards.md#custom<type>`.
+- Documented the previously-missing **filter card** in `docs/cards.md` (full
+  option table + examples) so its doc anchor resolves; verified all 13 anchors
+  match a heading in the file.
+- VERSION 0.5.0 → 0.5.1. (User asked for 0.2.1, but that would move the version
+  backward past released work / break HACS semver ordering — confirmed 0.5.1.)
+
 ### 2026-07-18 — Filter card: group-by-area sub-headers (v0.5.0)
 - Added `group_by: area` to `prism-filter-card`: matches are bucketed under
   area sub-headers (each with a per-group count). Named areas sort alphabetically
