@@ -120,6 +120,24 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — UV index card (v0.9.0) — weather set complete
+- Added **`prism-uv-card`** (`src/prism-uv-card.js`): flat UV-index tile. Big
+  value coloured by its WHO risk band, a category pill + sun-protection advice,
+  and a flat segmented **UV-ramp scale** (green→yellow→orange→red→purple, widths
+  3/3/2/3/1 over a 0–12 scale) with a marker at the value and boundary-aligned
+  ticks (0/3/6/8/11+). Reads a UV sensor state, or a `weather.*` `uv_index`
+  attribute (`attribute` override). Bands: 0–2 Low, 3–5 Moderate, 6–7 High,
+  8–10 Very high, 11+ Extreme.
+- Now **18 cards** — rounds out the weather set (wind / weather / forecast / sun
+  / uv). Wired into build.sh / build.ps1 / smoke.js (sensor.uv_index fixture +
+  weather.x uv_index attr + 2 cases) / preview.html (mock + demo). README table +
+  quick-start; full docs/cards.md section + sizing row. VERSION 0.8.0 → 0.9.0.
+- Verified in real Chromium (screenshot): UV 7 → orange "High" pill,
+  "Protection required", marker in the High segment at 58.3%, ticks aligned. No
+  console errors.
+- **Possible next:** an air-quality (AQI) card (same segmented-scale pattern);
+  regenerate showcase to include the UV card.
+
 ### 2026-07-18 — Sun (sunrise/sunset) card (v0.8.0)
 - Added **`prism-sun-card`** (`src/prism-sun-card.js`): a flat sun-path arc.
   Semicircular sky dome (SVG polyline arc); the traveled portion (sunrise→now)

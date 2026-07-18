@@ -107,6 +107,7 @@
         'media_player.speaker':  { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Midnight City', media_artist: 'M83', volume_level: 0.4, supported_features: 16437 } },
         'weather.home':          { state: 'partlycloudy', attributes: { friendly_name: 'Home', temperature: 18, apparent_temperature: 16, temperature_unit: '°C', humidity: 62, pressure: 1013, pressure_unit: 'hPa', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h' } },
         'sun.sun':               { state: 'above_horizon', attributes: { friendly_name: 'Sun', next_rising: (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(6, 12, 0, 0); return d.toISOString(); })(), next_setting: (() => { const d = new Date(); d.setHours(20, 24, 0, 0); return d.toISOString(); })(), elevation: 38, azimuth: 232 } },
+        'sensor.uv_index':       { state: '7', attributes: { friendly_name: 'UV Index' } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -198,6 +199,7 @@
       { type: 'prism-weather-card', cfg: { entity: 'weather.home', title: 'Weather', accent: 'blue' } },
       { type: 'prism-forecast-card', cfg: { entity: 'weather.home', title: 'Forecast', type: 'daily', count: 7, accent: 'blue' }, wide: true },
       { type: 'prism-sun-card', cfg: { entity: 'sun.sun', title: 'Sun', accent: 'amber' } },
+      { type: 'prism-uv-card', cfg: { entity: 'sensor.uv_index', title: 'UV Index' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];
