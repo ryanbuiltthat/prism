@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -106,6 +106,10 @@ check('parses compact history', async () => {});
     ['prism-linear-gauge-card', { entity: 'sensor.x', min: 0, max: 100, style: 'bands', icon: 'mdi:water', segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }] }],
     ['prism-entities-card', { title: 'Room', secondary: 'last-changed', entities: ['sensor.x', { entity: 'light.x', use_area: true }, { entity: 'light.x', name: 'Temp', secondary: 'sensor.x' }] }],
     ['prism-entities-card', { entities: ['sensor.x'], show_icons: false, state_color: false }],
+    ['prism-filter-card', { title: 'Lights on', domain: 'light', condition: 'on', secondary: 'area' }],
+    ['prism-filter-card', { domain: 'switch', condition: 'off', empty_text: 'All off' }],
+    ['prism-filter-card', { domains: ['light', 'sensor'], condition: 'numeric', operator: '>', value: 50, sort: 'state' }],
+    ['prism-filter-card', { condition: 'exact', state_is: 'playing', show_count: false }],
     ['prism-switch-card', { entity: 'light.x', secondary: 'last-changed' }],
     ['prism-light-card', { entity: 'light.x' }],
     ['prism-light-card', { entity: 'light.dim', use_color: true }],
