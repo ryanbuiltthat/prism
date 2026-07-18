@@ -1,0 +1,76 @@
+name: Release
+
+# Publishes a GitHub Release automatically from the version in the source.
+# On every push to main (and on manual dispatch) it reads `VERSION` from
+# src/prism-shared.js; if no release for that version exists yet, it builds
+# the bundle, runs the smoke test, and publishes `v<VERSION>` with prism.js
+# attached. Bumping VERSION in a merged PR is therefore all it takes to ship a
+# release — no manual tagging.
+#
+# NOTE: this needs the GITHUB_TOKEN to have write access. If the release step
+# fails with a 403, set Settings → Actions → General → Workflow permissions to
+# "Read and write permissions".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from source
+        id: ver
+        run: |
+          VERSION=$(grep -oE "const VERSION = '[^']+'" src/prism-shared.js | head -1 | sed -E "s/.*'([^']+)'.*/\1/")
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not read VERSION from src/prism-shared.js"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version $VERSION"
+
+      - name: Check whether the release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release ${{ steps.ver.outputs.tag }} already exists — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No release for ${{ steps.ver.outputs.tag }} yet — will publish."
+          fi
+
+      - name: Build bundle
+        if: steps.check.outputs.exists == 'false'
+        run: bash build.sh
+
+      - name: Smoke test
+        if: steps.check.outputs.exists == 'false'
+        run: node test/smoke.js
+
+      - name: Publish release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" prism.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Prism ${{ steps.ver.outputs.tag }}" \
+            --generate-notes

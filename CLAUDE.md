@@ -104,9 +104,34 @@ into a card's `shadowRoot` to assert real render output + zero console errors,
 rather than `test/shot.js`, when you don't want to touch the committed showcase
 images.
 
+## Releases
+
+Releases are **automated** by `.github/workflows/release.yml`. On every push to
+`main` (and on manual dispatch) it reads `VERSION` from `src/prism-shared.js`;
+if no `v<VERSION>` release exists yet, it builds the bundle, runs the smoke test,
+and publishes `v<VERSION>` with `prism.js` attached (`--generate-notes`). So the
+release step of shipping is just **bump `VERSION` in a merged PR** — no manual
+tagging. To re-publish or cut the current version on demand, run the **Release**
+workflow via *Actions → Release → Run workflow*. (Requires the repo's Actions
+token to have write access: Settings → Actions → General → *Read and write
+permissions*.)
+
 ## Session log
 
 Newest first. One short entry per working session: what shipped + open threads.
+
+### 2026-07-18 — Automated release workflow
+- Added `.github/workflows/release.yml`: on push to `main` / manual dispatch it
+  reads `VERSION` from `src/prism-shared.js` and, if no `v<VERSION>` release
+  exists, builds + smoke-tests + publishes the GitHub Release with `prism.js`
+  attached (`gh release create … --generate-notes`). Idempotent (skips if the
+  release already exists). Makes "bump VERSION in a merged PR" the whole release.
+- Context: GitHub/HACS were still showing v0.2.0 because Releases are separate
+  from the code `VERSION` const and none had been cut for 0.3–0.5.1. This
+  environment can't push tags (git relay 403s) or create releases via the MCP
+  tools, so the workflow is how v0.5.1 gets published — merging it (or a manual
+  dispatch) triggers the first auto-release. Needs Actions token write access
+  (Settings → Actions → General → Read and write permissions).
 
 ### 2026-07-18 — Card-picker doc links + filter-card docs (v0.5.1)
 - HA has no supported API to add a named custom category (e.g. "Prism cards")
