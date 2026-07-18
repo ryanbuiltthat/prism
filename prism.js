@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.6.0';
+  const VERSION = '0.7.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -292,6 +292,118 @@
   // Uses the shared .prism-head / .prism-title styles in TOKEN_STYLE.
   function titleHead(title) {
     return title ? `<div class="prism-head"><div class="prism-title">${esc(title)}</div></div>` : '';
+  }
+
+  // ── Weather: shared flat icon set + helpers (weather + forecast cards) ──
+
+  // Human labels for Home Assistant weather condition states.
+  const WEATHER_LABELS = {
+    'clear-night': 'Clear', cloudy: 'Cloudy', fog: 'Fog', hail: 'Hail',
+    lightning: 'Lightning', 'lightning-rainy': 'Thunderstorms', partlycloudy: 'Partly cloudy',
+    pouring: 'Pouring', rainy: 'Rainy', snowy: 'Snowy', 'snowy-rainy': 'Sleet',
+    sunny: 'Sunny', windy: 'Windy', 'windy-variant': 'Windy', exceptional: 'Severe',
+  };
+
+  // Flat condition-icon palette + gentle animations. Include once per card
+  // <style> (via WEATHER_CSS); TOKEN_STYLE's reduced-motion rule stills them.
+  const WEATHER_CSS = `
+    .wx { display:block; overflow:visible; }
+    .wx-sun { fill:#f2b03a; } .wx-ray { stroke:#f2b03a; stroke-linecap:round; }
+    .wx-moon { fill:#cdd6e5; } .wx-star { fill:#e6ecf5; }
+    .wx-cloud { fill:#aab4c0; } .wx-cloud2 { fill:#c6ced8; }
+    .wx-rain { stroke:#4f9fe6; stroke-linecap:round; }
+    .wx-snow { fill:#dbe8f6; } .wx-bolt { fill:#f4c740; } .wx-fog { stroke:#aab4c0; stroke-linecap:round; }
+    .wx-animated .wx-rays-g { transform-origin:center; animation:wx-spin 22s linear infinite; }
+    .wx-animated .wx-cloud-g { animation:wx-drift 6s ease-in-out infinite; }
+    .wx-animated .wx-rain { animation:wx-fall 1.1s linear infinite; }
+    .wx-animated .wx-snow { animation:wx-fall 2.6s linear infinite; }
+    .wx-animated .wx-bolt { animation:wx-flicker 3.2s steps(1,end) infinite; }
+    @keyframes wx-spin { to { transform:rotate(360deg); } }
+    @keyframes wx-drift { 0%,100% { transform:translateX(0); } 50% { transform:translateX(2px); } }
+    @keyframes wx-fall { 0% { transform:translateY(-3px); opacity:0; } 25% { opacity:1; } 100% { transform:translateY(7px); opacity:0; } }
+    @keyframes wx-flicker { 0%,90%,100% { opacity:1; } 93% { opacity:.2; } 95% { opacity:1; } 97% { opacity:.45; } }
+  `;
+
+  // Build a flat weather-condition icon as an inline SVG string (viewBox 64).
+  // opts.size (px, default 64), opts.animated (adds the .wx-animated class).
+  function weatherIcon(condition, opts = {}) {
+    const size = opts.size || 64;
+    const c = String(condition || '').toLowerCase();
+    const cls = 'wx' + (opts.animated ? ' wx-animated' : '');
+
+    const sun = (cx, cy, r) => {
+      let rays = '';
+      for (let i = 0; i < 8; i++) {
+        const a = (i * 45 * Math.PI) / 180;
+        const x1 = cx + Math.cos(a) * (r + 3), y1 = cy + Math.sin(a) * (r + 3);
+        const x2 = cx + Math.cos(a) * (r + 8), y2 = cy + Math.sin(a) * (r + 8);
+        rays += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="wx-ray" stroke-width="3"/>`;
+      }
+      return `<g class="wx-rays-g">${rays}</g><circle cx="${cx}" cy="${cy}" r="${r}" class="wx-sun"/>`;
+    };
+    const moon = (cx, cy, r) =>
+      `<path d="M${cx + r} ${cy - r * 0.75} a${r} ${r} 0 1 0 0 ${r * 1.5} a${r * 0.8} ${r * 0.8} 0 1 1 0 ${-r * 1.5} z" class="wx-moon"/>` +
+      `<circle cx="${cx + r + 6}" cy="${cy - r - 2}" r="1.6" class="wx-star"/>`;
+    const cloud = (x, y, s, klass) =>
+      `<g class="wx-cloud-g" transform="translate(${x},${y}) scale(${s})">
+        <circle cx="0" cy="7" r="10" class="${klass}"/>
+        <circle cx="13" cy="0" r="13" class="${klass}"/>
+        <circle cx="27" cy="8" r="10" class="${klass}"/>
+        <rect x="-10" y="9" width="47" height="13" rx="6.5" class="${klass}"/>
+      </g>`;
+    const rain = (xs, y) => xs.map((x, i) =>
+      `<line x1="${x}" y1="${y}" x2="${x - 3}" y2="${y + 8}" class="wx-rain" stroke-width="3" style="animation-delay:${(i * 0.22).toFixed(2)}s"/>`).join('');
+    const snow = (xs, y) => xs.map((x, i) =>
+      `<circle cx="${x}" cy="${y + (i % 2) * 4}" r="2.3" class="wx-snow" style="animation-delay:${(i * 0.4).toFixed(2)}s"/>`).join('');
+    const bolt = (x, y) => `<path d="M${x} ${y} l-6 12 h5 l-3 12 l12 -16 h-6 l4 -8 z" class="wx-bolt"/>`;
+
+    let body;
+    switch (c) {
+      case 'sunny': body = sun(32, 30, 12); break;
+      case 'clear-night': body = moon(28, 30, 12); break;
+      case 'partlycloudy': body = sun(40, 20, 8) + cloud(10, 26, 0.92, 'wx-cloud'); break;
+      case 'cloudy': body = cloud(8, 20, 1, 'wx-cloud2') + cloud(14, 26, 1, 'wx-cloud'); break;
+      case 'fog':
+        body = cloud(12, 20, 0.95, 'wx-cloud') +
+          [42, 48, 54].map((y) => `<line x1="8" y1="${y}" x2="56" y2="${y}" class="wx-fog" stroke-width="3"/>`).join('');
+        break;
+      case 'rainy': body = cloud(12, 18, 0.95, 'wx-cloud') + rain([20, 30, 40], 44); break;
+      case 'pouring': body = cloud(12, 16, 0.95, 'wx-cloud') + rain([16, 24, 32, 40, 48], 42); break;
+      case 'snowy': body = cloud(12, 18, 0.95, 'wx-cloud') + snow([20, 30, 40], 44); break;
+      case 'snowy-rainy': body = cloud(12, 18, 0.95, 'wx-cloud') + rain([20, 40], 44) + snow([30], 44); break;
+      case 'hail': body = cloud(12, 18, 0.95, 'wx-cloud') + snow([20, 30, 40], 46); break;
+      case 'lightning': body = cloud(12, 16, 0.95, 'wx-cloud') + bolt(30, 34); break;
+      case 'lightning-rainy': body = cloud(12, 14, 0.95, 'wx-cloud') + bolt(28, 32) + rain([18, 44], 44); break;
+      case 'windy':
+      case 'windy-variant':
+        body = `<g class="wx-cloud-g">
+          <path d="M8 24 h30 a6 6 0 1 0 -6 -6" class="wx-fog" fill="none" stroke-width="3.5"/>
+          <path d="M8 36 h38 a6 6 0 1 1 -6 6" class="wx-fog" fill="none" stroke-width="3.5"/>
+          <path d="M8 48 h22 a5 5 0 1 0 -5 -5" class="wx-fog" fill="none" stroke-width="3.5"/></g>`;
+        break;
+      case 'exceptional':
+        body = cloud(12, 18, 0.95, 'wx-cloud') +
+          `<rect x="30" y="34" width="4" height="12" rx="2" class="wx-bolt"/><circle cx="32" cy="51" r="2.4" class="wx-bolt"/>`;
+        break;
+      default: body = cloud(12, 22, 1, 'wx-cloud');
+    }
+    return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">${body}</svg>`;
+  }
+
+  // Fetch a weather entity's forecast via the get_forecasts service (modern HA,
+  // return_response). type: 'daily' | 'hourly' | 'twice_daily'. Never throws.
+  async function fetchForecast(hass, entityId, type = 'daily') {
+    if (!hass || !entityId || !hass.callWS) return [];
+    try {
+      const res = await hass.callWS({
+        type: 'call_service', domain: 'weather', service: 'get_forecasts',
+        service_data: { type }, target: { entity_id: entityId }, return_response: true,
+      });
+      const r = res && res.response && res.response[entityId];
+      return (r && r.forecast) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -610,6 +722,10 @@
     bindTap,
     dragSlider,
     titleHead,
+    WEATHER_LABELS,
+    WEATHER_CSS,
+    weatherIcon,
+    fetchForecast,
     PrismEditor,
   };
 
@@ -3829,5 +3945,328 @@
     type: 'prism-wind-card',
     name: 'Prism Wind Card',
     description: 'Wind speed, compass direction, and gusts with a flat compass rose and animated wind accents.',
+  });
+})();
+
+/* ===== src/prism-weather-card.js ===== */
+/**
+ * prism-weather-card
+ * Flat current-conditions tile: a big temperature, a flat animated condition
+ * icon (shared Prism weather set), the condition label, feels-like + today's
+ * high/low, and humidity / wind / pressure chips. Reads a `weather.*` entity;
+ * today's H/L comes from its daily forecast (get_forecasts service).
+ *
+ * type: custom:prism-weather-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  const DIRS8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const cardinal8 = (b) => (isNaN(b) ? '' : DIRS8[Math.round((((b % 360) + 360) % 360) / 45) % 8]);
+  const roundTemp = (v) => (isNaN(v) ? null : Math.round(v));
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismWeatherCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Weather entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['weather'] }),
+        this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._switch('Animated icon', c.animate !== false, (v) => this._patch('animate', v)),
+        this._switch('Feels-like + high/low', c.show_feels !== false, (v) => this._patch('show_feels', v)),
+        this._section('Detail chips'),
+        this._switch('Humidity', c.show_humidity !== false, (v) => this._patch('show_humidity', v)),
+        this._switch('Wind', c.show_wind !== false, (v) => this._patch('show_wind', v)),
+        this._switch('Pressure', c.show_pressure !== false, (v) => this._patch('show_pressure', v))
+      );
+    }
+  }
+  customElements.define('prism-weather-card-editor', PrismWeatherCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismWeatherCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+      this._forecast = [];
+      this._fcEntity = null;
+      this._fcAt = 0;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-weather-card: `entity` (a weather.* entity) is required.');
+      this._config = { animate: true, show_feels: true, show_humidity: true, show_wind: true, show_pressure: true, ...config };
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; this._maybeForecast(); this._render(); }
+
+    getCardSize() { return 3; }
+    getGridOptions() { return { rows: 3, columns: 6, min_rows: 3, min_columns: 4 }; }
+
+    static getConfigElement() { return document.createElement('prism-weather-card-editor'); }
+    static getStubConfig(hass) {
+      const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('weather.')) : null;
+      return { entity: ent || 'weather.home', accent: 'blue' };
+    }
+
+    // Refresh today's high/low from the daily forecast (throttled to 15 min).
+    _maybeForecast() {
+      const id = this._config && this._config.entity;
+      if (!id || !this._hass) return;
+      const now = Date.now();
+      if (this._fcEntity === id && this._fcAt && now - this._fcAt < 15 * 60 * 1000) return;
+      this._fcEntity = id; this._fcAt = now;
+      P.fetchForecast(this._hass, id, 'daily').then((f) => {
+        this._forecast = Array.isArray(f) ? f : [];
+        this._render();
+      });
+    }
+
+    _moreInfo() {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config;
+      const st = this._hass.states[c.entity];
+      const accent = P.resolveAccent(c.accent);
+      const a = (st && st.attributes) || {};
+      const condition = st ? st.state : '';
+      const name = c.name || (a.friendly_name || c.entity);
+
+      const temp = roundTemp(parseFloat(a.temperature));
+      const feels = roundTemp(parseFloat(a.apparent_temperature));
+      const today = this._forecast[0] || {};
+      const hi = roundTemp(parseFloat(today.temperature));
+      const lo = roundTemp(parseFloat(today.templow));
+
+      const label = P.WEATHER_LABELS[condition] || (condition ? condition.replace(/[-_]/g, ' ') : 'Unavailable');
+
+      // Feels-like / high-low line.
+      const bits = [];
+      if (c.show_feels !== false && feels != null) bits.push(`Feels ${feels}°`);
+      if (c.show_feels !== false && hi != null) bits.push(`H:${hi}°${lo != null ? ` L:${lo}°` : ''}`);
+      const subLine = bits.join(' · ');
+
+      // Detail chips.
+      const chips = [];
+      if (c.show_humidity !== false && a.humidity != null) {
+        chips.push(`<span class="chip"><ha-icon icon="mdi:water-percent"></ha-icon>${P.esc(Math.round(a.humidity))}%</span>`);
+      }
+      if (c.show_wind !== false && a.wind_speed != null) {
+        const wu = a.wind_speed_unit || '';
+        const dir = cardinal8(parseFloat(a.wind_bearing));
+        chips.push(`<span class="chip"><ha-icon icon="mdi:weather-windy"></ha-icon>${P.esc(P.fmtNumber(parseFloat(a.wind_speed), 0))}${wu ? ` ${P.esc(wu)}` : ''}${dir ? ` ${dir}` : ''}</span>`);
+      }
+      if (c.show_pressure !== false && a.pressure != null) {
+        const pu = a.pressure_unit || 'hPa';
+        chips.push(`<span class="chip"><ha-icon icon="mdi:gauge"></ha-icon>${P.esc(P.fmtNumber(parseFloat(a.pressure), 0))} ${P.esc(pu)}</span>`);
+      }
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          ${P.WEATHER_CSS}
+          .prism-card { display:flex; flex-direction:column; cursor:pointer; }
+          .content { display:flex; align-items:center; gap:12px; }
+          .main { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+          .temp { font-size:46px; font-weight:750; line-height:1; letter-spacing:-2px; color:var(--_text); }
+          .cond { font-size:15px; font-weight:650; color:var(--_text); margin-top:2px; }
+          .sub { font-size:12px; font-weight:500; color:var(--_text-2); }
+          .icon { flex:none; }
+          .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+          .chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 7px; border-radius:999px;
+                  background:var(--_surface-2); font-size:12px; font-weight:600; color:var(--_text-2);
+                  --mdc-icon-size:15px; white-space:nowrap; }
+          .chip ha-icon { color:${accent}; }
+        </style>
+        <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)} weather">
+          ${P.titleHead(c.title)}
+          <div class="content">
+            <div class="main">
+              <div class="temp">${temp != null ? `${temp}°` : '—'}</div>
+              <div class="cond">${P.esc(label)}</div>
+              ${subLine ? `<div class="sub">${P.esc(subLine)}</div>` : ''}
+            </div>
+            <div class="icon">${P.weatherIcon(condition, { animated: c.animate !== false, size: 88 })}</div>
+          </div>
+          ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+        </div>`;
+
+      P.bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._moreInfo(), () => this._moreInfo());
+    }
+  }
+
+  customElements.define('prism-weather-card', PrismWeatherCard);
+  P.registerCard({
+    type: 'prism-weather-card',
+    name: 'Prism Weather Card',
+    description: 'Flat current-conditions tile: temperature, animated condition icon, feels-like / high-low, and detail chips.',
+  });
+})();
+
+/* ===== src/prism-forecast-card.js ===== */
+/**
+ * prism-forecast-card
+ * Flat multi-day (or hourly) forecast strip: one column per period — a day/
+ * hour label, a flat condition icon (shared Prism weather set), high/low temps,
+ * and an optional precipitation-chance chip. Reads a `weather.*` entity's
+ * forecast via the get_forecasts service.
+ *
+ * type: custom:prism-forecast-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  const roundTemp = (v) => (isNaN(v) ? null : Math.round(v));
+
+  // Column label: "Today"/"Now" for the first current period, else weekday/hour.
+  function periodLabel(iso, type, isFirst) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    if (type === 'hourly') {
+      if (isFirst && Math.abs(d - now) < 60 * 60 * 1000) return 'Now';
+      return d.toLocaleTimeString(undefined, { hour: 'numeric' });
+    }
+    if (isFirst && d.toDateString() === now.toDateString()) return 'Today';
+    return d.toLocaleDateString(undefined, { weekday: 'short' });
+  }
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismForecastCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Weather entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['weather'] }),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._select('Forecast', [
+          { value: 'daily', label: 'Daily' },
+          { value: 'hourly', label: 'Hourly' },
+        ], c.type || 'daily', (v) => this._patch('type', v)),
+        this._tf('Columns', c.count, (v) => this._patch('count', v === '' ? '' : Number(v)), { type: 'number' }),
+        this._switch('Animated icons', !!c.animate, (v) => this._patch('animate', v)),
+        this._switch('Precipitation chance', c.show_precip !== false, (v) => this._patch('show_precip', v))
+      );
+    }
+  }
+  customElements.define('prism-forecast-card-editor', PrismForecastCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismForecastCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+      this._forecast = [];
+      this._fcKey = null;
+      this._fcAt = 0;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-forecast-card: `entity` (a weather.* entity) is required.');
+      this._config = { type: 'daily', count: 5, animate: false, show_precip: true, ...config };
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; this._maybeForecast(); this._render(); }
+
+    getCardSize() { return 3; }
+    getGridOptions() { return { rows: 3, columns: 12, min_rows: 3, min_columns: 6 }; }
+
+    static getConfigElement() { return document.createElement('prism-forecast-card-editor'); }
+    static getStubConfig(hass) {
+      const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('weather.')) : null;
+      return { entity: ent || 'weather.home', type: 'daily', count: 5, accent: 'blue' };
+    }
+
+    _maybeForecast() {
+      const c = this._config;
+      if (!c || !c.entity || !this._hass) return;
+      const key = `${c.entity}|${c.type || 'daily'}`;
+      const now = Date.now();
+      if (this._fcKey === key && this._fcAt && now - this._fcAt < 15 * 60 * 1000) return;
+      this._fcKey = key; this._fcAt = now;
+      P.fetchForecast(this._hass, c.entity, c.type || 'daily').then((f) => {
+        this._forecast = Array.isArray(f) ? f : [];
+        this._render();
+      });
+    }
+
+    _moreInfo() {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config;
+      const accent = P.resolveAccent(c.accent);
+      const type = c.type || 'daily';
+      const n = Math.max(1, Number(c.count) || 5);
+      const items = this._forecast.slice(0, n);
+
+      const cols = items.map((it, i) => {
+        const label = periodLabel(it.datetime, type, i === 0);
+        const hi = roundTemp(parseFloat(it.temperature));
+        const lo = roundTemp(parseFloat(it.templow));
+        const precip = it.precipitation_probability;
+        const showPrecip = c.show_precip !== false && precip != null && !isNaN(parseFloat(precip));
+        return `
+          <div class="col">
+            <div class="lbl">${P.esc(label)}</div>
+            <div class="ic">${P.weatherIcon(it.condition, { animated: !!c.animate, size: 38 })}</div>
+            <div class="hi">${hi != null ? `${hi}°` : '—'}</div>
+            ${lo != null ? `<div class="lo">${lo}°</div>` : ''}
+            ${showPrecip ? `<div class="pop"><ha-icon icon="mdi:water"></ha-icon>${Math.round(parseFloat(precip))}%</div>` : ''}
+          </div>`;
+      }).join('');
+
+      const empty = !items.length;
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          ${P.WEATHER_CSS}
+          .prism-card { display:flex; flex-direction:column; cursor:pointer; }
+          .strip { display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; }
+          .strip::-webkit-scrollbar { display:none; }
+          .col { flex:1 0 auto; min-width:52px; display:flex; flex-direction:column; align-items:center; gap:3px;
+                 padding:6px 2px; border-radius:12px; }
+          .col:first-child { background:var(--_surface-2); }
+          .lbl { font-size:12px; font-weight:650; color:var(--_text-2); white-space:nowrap; }
+          .ic { line-height:0; }
+          .hi { font-size:15px; font-weight:750; color:var(--_text); }
+          .lo { font-size:13px; font-weight:600; color:var(--_text-2); }
+          .pop { display:inline-flex; align-items:center; gap:2px; font-size:11px; font-weight:600; color:${accent}; --mdc-icon-size:12px; }
+          .empty { padding:16px 0 6px; font-size:13px; font-weight:500; color:var(--_text-2); text-align:center; }
+        </style>
+        <div class="prism-card" role="button" tabindex="0" aria-label="Forecast">
+          ${P.titleHead(c.title)}
+          ${empty ? `<div class="empty">Forecast unavailable</div>` : `<div class="strip">${cols}</div>`}
+        </div>`;
+
+      P.bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._moreInfo(), () => this._moreInfo());
+    }
+  }
+
+  customElements.define('prism-forecast-card', PrismForecastCard);
+  P.registerCard({
+    type: 'prism-forecast-card',
+    name: 'Prism Forecast Card',
+    description: 'Flat daily/hourly forecast strip: condition icons, high/low temps, and precipitation chance.',
   });
 })();

@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -60,11 +60,21 @@ const hass = {
     'climate.x': { state: 'heat', attributes: { friendly_name: 'Thermostat', temperature: 21, current_temperature: 19.5, hvac_action: 'heating', min_temp: 7, max_temp: 35, target_temp_step: 0.5 } },
     'cover.x': { state: 'open', attributes: { friendly_name: 'Blinds', current_position: 70, supported_features: 15 } },
     'media_player.x': { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Song', media_artist: 'Artist', volume_level: 0.4, supported_features: 16437 } },
-    'weather.x': { state: 'windy', attributes: { friendly_name: 'Home', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h', temperature: 12 } },
+    'weather.x': { state: 'partlycloudy', attributes: { friendly_name: 'Home', temperature: 18, apparent_temperature: 16, temperature_unit: '°C', humidity: 62, pressure: 1013, pressure_unit: 'hPa', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h' } },
     'sensor.wind_dir': { state: 'NW', attributes: { friendly_name: 'Wind Dir' } },
   },
   callService: () => {},
-  callWS: () => Promise.resolve({ 'sensor.x': hist }),
+  callWS: (msg) => {
+    if (msg && msg.service === 'get_forecasts') {
+      const id = (msg.target && msg.target.entity_id) || 'weather.x';
+      return Promise.resolve({ response: { [id]: { forecast: [
+        { datetime: new Date(now).toISOString(), condition: 'sunny', temperature: 21, templow: 9, precipitation_probability: 10 },
+        { datetime: new Date(now + 86400000).toISOString(), condition: 'rainy', temperature: 16, templow: 11, precipitation_probability: 80 },
+        { datetime: new Date(now + 2 * 86400000).toISOString(), condition: 'partlycloudy', temperature: 19, templow: 8 },
+      ] } } });
+    }
+    return Promise.resolve({ 'sensor.x': hist });
+  },
 };
 
 let failures = 0;
@@ -124,6 +134,10 @@ check('parses compact history', async () => {});
     ['prism-media-card', { entity: 'media_player.x' }],
     ['prism-wind-card', { entity: 'weather.x', title: 'Wind' }],
     ['prism-wind-card', { entity: 'sensor.x', unit: 'm/s', direction_entity: 'sensor.wind_dir', gust_entity: 'sensor.x', animate: false }],
+    ['prism-weather-card', { entity: 'weather.x', title: 'Weather' }],
+    ['prism-weather-card', { entity: 'weather.x', show_pressure: false, animate: false }],
+    ['prism-forecast-card', { entity: 'weather.x', type: 'daily', count: 5 }],
+    ['prism-forecast-card', { entity: 'weather.x', type: 'hourly', count: 8, show_precip: false }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {

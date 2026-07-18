@@ -44,6 +44,8 @@ Prism is two things working together:
 | **Cover** | `custom:prism-cover-card` | Cover tile: open / stop / close buttons and an optional drag position slider. |
 | **Media** | `custom:prism-media-card` | Media-player tile: album art, what's playing, transport controls, and a volume slider. |
 | **Wind** | `custom:prism-wind-card` | Wind tile: dominant speed, a flat compass rose with an accent direction arrow, Beaufort descriptor, gusts, and animated flat wind-streak accents that intensify with the wind. Reads a `weather.*` entity or individual sensors. |
+| **Weather** | `custom:prism-weather-card` | Current-conditions tile: big temperature, a flat animated condition icon, feels-like + today's high/low, and humidity / wind / pressure chips. Reads a `weather.*` entity. |
+| **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity's forecast. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -125,6 +127,24 @@ entity: sensor.grid_power
 hours: 24
 style: area
 show_minmax: true
+```
+
+```yaml
+# Current conditions — big temp, flat animated icon, feels-like + H/L, chips.
+type: custom:prism-weather-card
+entity: weather.home
+title: Weather
+accent: blue
+```
+
+```yaml
+# Forecast strip — daily (or type: hourly). Flat icons + hi/lo + precip.
+type: custom:prism-forecast-card
+entity: weather.home
+title: Forecast
+type: daily        # or: hourly
+count: 7           # number of columns
+accent: blue
 ```
 
 ```yaml

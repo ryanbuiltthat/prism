@@ -430,6 +430,59 @@ unit: mph
 
 ---
 
+## `custom:prism-weather-card`
+
+Flat **current-conditions tile**: a big temperature, a flat **animated condition icon** (shared Prism weather set), the condition label, **feels-like + today's high/low**, and **humidity / wind / pressure** chips. Reads a `weather.*` entity; today's H/L comes from its daily forecast (the `weather.get_forecasts` service).
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** A `weather.*` entity. |
+| `title` | string | — | Card header. |
+| `accent` | string | `theme` | Tints the chip icons. |
+| `animate` | bool | `true` | Animate the condition icon (respects `prefers-reduced-motion`). |
+| `show_feels` | bool | `true` | Show the "Feels … · H:… L:…" line. |
+| `show_humidity` | bool | `true` | Humidity chip (`humidity`). |
+| `show_wind` | bool | `true` | Wind chip (`wind_speed` + `wind_speed_unit` + cardinal). |
+| `show_pressure` | bool | `true` | Pressure chip (`pressure` + `pressure_unit`). |
+
+Temperature, feels-like (`apparent_temperature`), humidity, wind, and pressure come from the weather entity's attributes; units follow its `*_unit` attributes. Tap opens more-info.
+
+```yaml
+type: custom:prism-weather-card
+entity: weather.home
+title: Weather
+accent: blue
+```
+
+---
+
+## `custom:prism-forecast-card`
+
+Flat **forecast strip** — one column per period: a day/hour label ("Today"/"Now" for the first), a flat condition icon, **high/low** temps, and an optional **precipitation-chance** chip. Reads a `weather.*` entity's forecast via `weather.get_forecasts`.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** A `weather.*` entity. |
+| `type` | string | `daily` | `daily` or `hourly`. |
+| `count` | number | `5` | Number of columns shown. |
+| `show_precip` | bool | `true` | Show the precipitation-chance chip (`precipitation_probability`). |
+| `animate` | bool | `false` | Animate the (small) condition icons. |
+| `title` | string | — | Card header. |
+| `accent` | string | `theme` | Colours the precipitation chip. |
+
+Daily periods show `temperature` (high) over `templow` (low); hourly periods show the single `temperature`. Overflow scrolls horizontally. Tap opens more-info.
+
+```yaml
+type: custom:prism-forecast-card
+entity: weather.home
+title: Forecast
+type: daily        # or: hourly
+count: 7
+accent: blue
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -449,5 +502,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Cover | 3 | 4 |
 | Media | 3 | 6 |
 | Wind | 3 | 6 |
+| Weather | 3 | 6 |
+| Forecast | 3 | 12 |
 
 You can override with `grid_options` per card.
