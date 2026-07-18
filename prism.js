@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.3.0';
+  const VERSION = '0.4.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -2352,6 +2352,10 @@
         exactTf,
         this._select('Area', areaOpts, c.area || '', (v) => this._patch('area', v)),
         this._section('Display'),
+        this._select('Layout', [
+          { value: 'list', label: 'List (rows)' },
+          { value: 'chips', label: 'Chips (grid)' },
+        ], c.layout || 'list', (v) => this._patch('layout', v)),
         this._select('Sort', [
           { value: 'name', label: 'Name' },
           { value: 'state', label: 'State' },
@@ -2371,7 +2375,7 @@
         this._switch('Toggles for actionable rows', c.show_toggle !== false, (v) => this._patch('show_toggle', v)),
         this._switch('Show match count', c.show_count !== false, (v) => this._patch('show_count', v)),
         this._tf('Empty text', c.empty_text, (v) => this._patch('empty_text', v)),
-        this._hint('Rows update automatically as entities change. Tap a row for more-info; tap a toggle to switch it.')
+        this._hint('Updates automatically as entities change. List: tap a row for more-info, tap the toggle to switch. Chips: tap to toggle (or open more-info), hold for details; the secondary line applies to the list layout only.')
       );
     }
   }
@@ -2389,17 +2393,21 @@
 
     setConfig(config) {
       this._config = {
-        condition: 'on', sort: 'name', show_icons: true, state_color: true,
-        show_toggle: true, show_count: true, ...config,
+        condition: 'on', sort: 'name', layout: 'list', show_icons: true,
+        state_color: true, show_toggle: true, show_count: true, ...config,
       };
       if (this._hass) this._render();
     }
 
     set hass(hass) { this._hass = hass; this._render(); }
 
-    getCardSize() { return 1 + Math.max(1, this._count); }
-    getGridOptions() {
+    getCardSize() {
       const n = Math.max(1, this._count);
+      return 1 + (this._config?.layout === 'chips' ? Math.ceil(n / 2) : n);
+    }
+    getGridOptions() {
+      // Chips wrap ~2 per grid column, so they need far fewer rows than a list.
+      const n = this._config?.layout === 'chips' ? Math.ceil(Math.max(1, this._count) / 2) : Math.max(1, this._count);
       return { rows: Math.max(2, n + (this._config?.title || this._config?.show_count !== false ? 2 : 1)), columns: 6, min_rows: 2, min_columns: 4 };
     }
 
@@ -2480,6 +2488,45 @@
           </div>`;
       }).join('');
 
+      // Chip layout: compact pills that wrap. Toggleable + active entities fill
+      // with the accent (so a "lights on" card reads at a glance); sensors show
+      // their value inline. Tap toggles (or opens more-info); hold = more-info.
+      const chipsHtml = ids.map((id) => {
+        const st = hass.states[id];
+        const domain = domainOf(id);
+        const name = P.friendlyName(hass, id);
+        const raw = P.num(hass, id);
+        const isNum = !isNaN(raw);
+        const active = isActive(st.state);
+        const isToggle = this._isToggle(domain);
+        const filled = isToggle && active;
+
+        const icon = (st && st.attributes.icon) || defaultIcon(domain);
+        const iconColor = filled ? '#fff'
+          : (c.state_color !== false ? (active ? accent : 'var(--_text-2)') : 'var(--_text-2)');
+        const iconHtml = showIcons
+          ? `<span class="cic" style="color:${iconColor}"><ha-icon icon="${P.esc(icon)}"></ha-icon></span>` : '';
+
+        // Trailing value for non-toggle entities (never a bare label for a sensor).
+        let cval = '';
+        if (!isToggle) {
+          const unit = P.unitOf(hass, id, null);
+          cval = isNum
+            ? `${P.esc(P.fmtNumber(raw, Math.abs(raw) >= 100 ? 0 : Math.abs(raw) >= 10 ? 1 : 2))}${unit ? ` ${P.esc(unit)}` : ''}`
+            : P.esc(titleCase(st.state));
+        }
+
+        return `
+          <button type="button" class="chip${filled ? ' on' : ''}" data-entity="${P.esc(id)}"
+                  data-toggle="${isToggle ? '1' : ''}" ${isToggle ? `aria-pressed="${active ? 'true' : 'false'}"` : ''}
+                  aria-label="${P.esc(name)}">
+            ${iconHtml}
+            <span class="cnm">${P.esc(name)}</span>
+            ${cval ? `<span class="cval">${cval}</span>` : ''}
+          </button>`;
+      }).join('');
+
+      const isChips = c.layout === 'chips';
       const count = ids.length;
       const countBadge = c.show_count !== false
         ? `<span class="count">${count}</span>` : '';
@@ -2513,22 +2560,42 @@
                        background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:left .2s; }
           .tgl.on { background:${accent}; }
           .tgl.on .knob { left:20px; }
+          .chips { display:flex; flex-wrap:wrap; gap:8px; }
+          .chip { display:inline-flex; align-items:center; gap:8px; min-width:0; max-width:100%;
+                  padding:7px 12px 7px 10px; border-radius:999px; cursor:pointer;
+                  border:1px solid var(--_border); background:var(--_surface-2); color:var(--_text);
+                  font:inherit; -webkit-user-select:none; user-select:none;
+                  transition:background .2s, border-color .2s, color .2s; }
+          .chip.on { background:${accent}; border-color:${accent}; color:#fff; }
+          .chip .cic { --mdc-icon-size:18px; width:18px; height:18px; flex:none; display:flex; align-items:center; justify-content:center; }
+          .chip .cnm { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .chip .cval { font-size:12px; font-weight:600; opacity:.85; white-space:nowrap; flex:none; }
           .empty { padding:14px 0 4px; font-size:13px; font-weight:500; color:var(--_text-2); text-align:center; }
         </style>
         <div class="prism-card">
           ${header}
-          ${count ? `<div class="rows">${rowsHtml}</div>` : `<div class="empty">${P.esc(empty)}</div>`}
+          ${count
+            ? (isChips ? `<div class="chips">${chipsHtml}</div>` : `<div class="rows">${rowsHtml}</div>`)
+            : `<div class="empty">${P.esc(empty)}</div>`}
         </div>`;
 
-      this.shadowRoot.querySelectorAll('.row').forEach((el) => {
-        el.addEventListener('click', (e) => {
-          if (e.target.closest('.tgl')) return; // toggle handles itself
-          this._moreInfo(el.dataset.entity);
+      if (isChips) {
+        this.shadowRoot.querySelectorAll('.chip').forEach((el) => {
+          const id = el.dataset.entity;
+          const canToggle = el.dataset.toggle === '1';
+          P.bindTap(el, () => (canToggle ? this._toggle(id) : this._moreInfo(id)), () => this._moreInfo(id));
         });
-      });
-      this.shadowRoot.querySelectorAll('.tgl').forEach((el) => {
-        el.addEventListener('click', (e) => { e.stopPropagation(); this._toggle(el.dataset.toggle); });
-      });
+      } else {
+        this.shadowRoot.querySelectorAll('.row').forEach((el) => {
+          el.addEventListener('click', (e) => {
+            if (e.target.closest('.tgl')) return; // toggle handles itself
+            this._moreInfo(el.dataset.entity);
+          });
+        });
+        this.shadowRoot.querySelectorAll('.tgl').forEach((el) => {
+          el.addEventListener('click', (e) => { e.stopPropagation(); this._toggle(el.dataset.toggle); });
+        });
+      }
     }
   }
 

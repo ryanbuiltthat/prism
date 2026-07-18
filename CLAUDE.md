@@ -108,6 +108,20 @@ images.
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Filter card: chip/grid layout (v0.4.0)
+- Added a `layout` option to `prism-filter-card`: `list` (default, unchanged) or
+  `chips` — a wrapping flex grid of rounded pills. Toggleable + active entities
+  fill with the accent (a "lights on" chip card reads at a glance); non-toggle
+  entities show their value inline. Tap a chip toggles it (or opens more-info for
+  non-toggle domains); hold opens more-info. `secondary` applies to list only.
+- Editor: new "Layout" select in the Display section. `getCardSize` /
+  `getGridOptions` account for chips packing ~2 per grid column.
+- Smoke + preview + README updated; VERSION 0.3.0 → 0.4.0.
+- Verified in real Chromium: chips render + fill correctly; tapping a filled
+  chip toggled it and dropped the count 2→1; no console errors.
+- **Possible next:** multi-condition (AND/OR) filtering; group matches by area
+  with sub-headers; per-chip state color for non-toggle active domains.
+
 ### 2026-07-18 — Smart Filter card (v0.3.0)
 - Added **`prism-filter-card`** (`src/prism-filter-card.js`): a dynamic,
   self-populating list. Pick a domain (or `domains: []`) + a condition and it
