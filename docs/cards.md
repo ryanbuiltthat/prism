@@ -463,7 +463,7 @@ Flat **forecast strip** — one column per period: a day/hour label ("Today"/"No
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
 | `entity` | string | — | **Required.** A `weather.*` entity. |
-| `type` | string | `daily` | `daily` or `hourly`. |
+| `forecast_type` | string | `daily` | `daily` or `hourly`. (Named `forecast_type`, not `type`, because `type` is Lovelace's reserved card-type key.) |
 | `count` | number | `5` | Number of columns shown. |
 | `show_precip` | bool | `true` | Show the precipitation-chance chip (`precipitation_probability`). |
 | `animate` | bool | `false` | Animate the (small) condition icons. |
@@ -476,7 +476,7 @@ Daily periods show `temperature` (high) over `templow` (low); hourly periods sho
 type: custom:prism-forecast-card
 entity: weather.home
 title: Forecast
-type: daily        # or: hourly
+forecast_type: daily   # or: hourly
 count: 7
 accent: blue
 ```

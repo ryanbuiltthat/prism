@@ -120,6 +120,23 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Fix forecast card `type` option collision (v0.9.1)
+- **Bug (user-reported):** `prism-forecast-card`'s daily/hourly option was named
+  `type`, which collides with Lovelace's reserved card-type key. A config with
+  `type: daily` overrode `type: custom:prism-forecast-card` → HA "Unknown type:
+  daily". The README even had two `type:` lines. Second latent bug: since
+  `_config.type` was actually the card-type string, `fetchForecast` was called
+  with `'custom:prism-forecast-card'` as the forecast type → invalid → the strip
+  always showed "Forecast unavailable".
+- **Fix:** renamed the option to **`forecast_type`** (matching HA's core
+  weather-forecast card) throughout the card (setConfig default, editor select,
+  fetch key, `_render`, stub). Updated README quick-start (removed the duplicate
+  `type:`), docs/cards.md option table + example, smoke cases, preview demo.
+  VERSION 0.9.0 → 0.9.1.
+- Verified in real Chromium: daily → Today/Sun/Mon…, hourly → Now/11 PM/12 AM…,
+  no console errors. **Users must update to v0.9.1** for the forecast card to
+  fetch (0.9.0's was effectively broken).
+
 ### 2026-07-18 — UV index card (v0.9.0) — weather set complete
 - Added **`prism-uv-card`** (`src/prism-uv-card.js`): flat UV-index tile. Big
   value coloured by its WHO risk band, a category pill + sun-protection advice,

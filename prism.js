@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.9.0';
+  const VERSION = '0.9.1';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -4154,7 +4154,7 @@
         this._select('Forecast', [
           { value: 'daily', label: 'Daily' },
           { value: 'hourly', label: 'Hourly' },
-        ], c.type || 'daily', (v) => this._patch('type', v)),
+        ], c.forecast_type || 'daily', (v) => this._patch('forecast_type', v)),
         this._tf('Columns', c.count, (v) => this._patch('count', v === '' ? '' : Number(v)), { type: 'number' }),
         this._switch('Animated icons', !!c.animate, (v) => this._patch('animate', v)),
         this._switch('Precipitation chance', c.show_precip !== false, (v) => this._patch('show_precip', v))
@@ -4177,7 +4177,9 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error('prism-forecast-card: `entity` (a weather.* entity) is required.');
-      this._config = { type: 'daily', count: 5, animate: false, show_precip: true, ...config };
+      // Note: `type` is Lovelace's reserved card-type key, so the daily/hourly
+      // option is `forecast_type` (matching HA's core weather-forecast card).
+      this._config = { forecast_type: 'daily', count: 5, animate: false, show_precip: true, ...config };
       if (this._hass) this._render();
     }
 
@@ -4189,17 +4191,17 @@
     static getConfigElement() { return document.createElement('prism-forecast-card-editor'); }
     static getStubConfig(hass) {
       const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('weather.')) : null;
-      return { entity: ent || 'weather.home', type: 'daily', count: 5, accent: 'blue' };
+      return { entity: ent || 'weather.home', forecast_type: 'daily', count: 5, accent: 'blue' };
     }
 
     _maybeForecast() {
       const c = this._config;
       if (!c || !c.entity || !this._hass) return;
-      const key = `${c.entity}|${c.type || 'daily'}`;
+      const key = `${c.entity}|${c.forecast_type || 'daily'}`;
       const now = Date.now();
       if (this._fcKey === key && this._fcAt && now - this._fcAt < 15 * 60 * 1000) return;
       this._fcKey = key; this._fcAt = now;
-      P.fetchForecast(this._hass, c.entity, c.type || 'daily').then((f) => {
+      P.fetchForecast(this._hass, c.entity, c.forecast_type || 'daily').then((f) => {
         this._forecast = Array.isArray(f) ? f : [];
         this._render();
       });
@@ -4215,7 +4217,7 @@
       if (!this._config || !this._hass) return;
       const c = this._config;
       const accent = P.resolveAccent(c.accent);
-      const type = c.type || 'daily';
+      const type = c.forecast_type || 'daily';
       const n = Math.max(1, Number(c.count) || 5);
       const items = this._forecast.slice(0, n);
 
