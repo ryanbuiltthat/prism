@@ -217,6 +217,58 @@
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
   }
 
+  // Drag/keyboard slider — the horizontal 0–100 track shared by the light,
+  // cover, media, and fan tiles. `el` is the `.slider` element (with a `.fill`
+  // child); it must already carry role="slider" and aria-valuenow markup.
+  //   onCommit(pct)  – required; send the settled 0–100 value to Home Assistant.
+  //   onDrag(bool)   – optional; toggled true while dragging so `set hass` can
+  //                    skip re-rendering under the finger (guards the paint).
+  //   fillColor(pct) – optional; returns the fill background for that value
+  //                    (the light tile uses it to show the bulb colour).
+  //   step           – optional keyboard increment (default 5).
+  function dragSlider(el, { onCommit, onDrag, fillColor, step = 5 } = {}) {
+    const fill = el.querySelector('.fill');
+    const pctAt = (clientX) => {
+      const r = el.getBoundingClientRect();
+      return Math.round(clamp((clientX - r.left) / (r.width || 1), 0, 1) * 100);
+    };
+    const paint = (pct) => {
+      fill.style.width = `${pct}%`;
+      if (fillColor) fill.style.background = fillColor(pct);
+      el.setAttribute('aria-valuenow', String(pct));
+    };
+    let pending = 0, dragging = false;
+    const setDrag = (v) => { dragging = v; if (onDrag) onDrag(v); };
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      setDrag(true); el.classList.add('dragging');
+      el.setPointerCapture(e.pointerId);
+      pending = pctAt(e.clientX); paint(pending);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      pending = pctAt(e.clientX); paint(pending);
+    });
+    const end = () => {
+      if (!dragging) return;
+      setDrag(false); el.classList.remove('dragging');
+      onCommit(pending);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', (e) => {
+      const cur = Number(el.getAttribute('aria-valuenow')) || 0;
+      let next = cur;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = clamp(cur + step, 0, 100);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = clamp(cur - step, 0, 100);
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = 100;
+      else return;
+      e.preventDefault();
+      pending = next; paint(next); onCommit(next);
+    });
+  }
+
   // Optional card header markup — every card renders this from `config.title`.
   // Uses the shared .prism-head / .prism-title styles in TOKEN_STYLE.
   function titleHead(title) {
@@ -536,6 +588,7 @@
     sparklinePath,
     registerCard,
     bindTap,
+    dragSlider,
     titleHead,
     PrismEditor,
   };

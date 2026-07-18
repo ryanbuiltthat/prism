@@ -143,35 +143,12 @@
       if (sp) sp.addEventListener('click', () => this._svc('stop_cover'));
       if (cl) cl.addEventListener('click', () => this._svc('close_cover'));
       P.bindTap(q('.chip'), () => this._moreInfo(), () => this._moreInfo());
-      if (canSlide) this._bindSlider(q('.slider'), accent);
-    }
-
-    _bindSlider(el, accent) {
-      const fill = el.querySelector('.fill');
-      const pctAt = (clientX) => {
-        const r = el.getBoundingClientRect();
-        return Math.round(P.clamp((clientX - r.left) / (r.width || 1), 0, 1) * 100);
-      };
-      const paint = (pct) => { fill.style.width = `${pct}%`; el.setAttribute('aria-valuenow', String(pct)); };
-      let pending = 0;
-      el.addEventListener('pointerdown', (e) => {
-        e.preventDefault(); this._dragging = true; el.classList.add('dragging');
-        el.setPointerCapture(e.pointerId); pending = pctAt(e.clientX); paint(pending);
-      });
-      el.addEventListener('pointermove', (e) => { if (this._dragging) { pending = pctAt(e.clientX); paint(pending); } });
-      const end = () => { if (!this._dragging) return; this._dragging = false; el.classList.remove('dragging'); this._setPos(pending); };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      el.addEventListener('keydown', (e) => {
-        const cur = Number(el.getAttribute('aria-valuenow')) || 0;
-        let next = cur;
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = P.clamp(cur + 5, 0, 100);
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = P.clamp(cur - 5, 0, 100);
-        else if (e.key === 'Home') next = 0;
-        else if (e.key === 'End') next = 100;
-        else return;
-        e.preventDefault(); paint(next); this._setPos(next);
-      });
+      if (canSlide) {
+        P.dragSlider(q('.slider'), {
+          onDrag: (v) => { this._dragging = v; },
+          onCommit: (pct) => this._setPos(pct),
+        });
+      }
     }
   }
 

@@ -141,49 +141,13 @@
         </div>`;
 
       P.bindTap(this.shadowRoot.querySelector('.head'), () => this._toggle(), () => this._moreInfo());
-      if (canDim) this._bindSlider(this.shadowRoot.querySelector('.slider'));
-    }
-
-    _bindSlider(el) {
-      const fill = el.querySelector('.fill');
-      const pctAt = (clientX) => {
-        const r = el.getBoundingClientRect();
-        return Math.round(P.clamp((clientX - r.left) / (r.width || 1), 0, 1) * 100);
-      };
-      const paint = (pct) => {
-        fill.style.width = `${pct}%`;
-        fill.style.background = pct > 0 ? this._color(this._hass.states[this._config.entity]) : 'var(--_text-2)';
-        el.setAttribute('aria-valuenow', String(pct));
-      };
-      let pending = 0;
-      el.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        this._dragging = true; el.classList.add('dragging');
-        el.setPointerCapture(e.pointerId);
-        pending = pctAt(e.clientX); paint(pending);
-      });
-      el.addEventListener('pointermove', (e) => {
-        if (!this._dragging) return;
-        pending = pctAt(e.clientX); paint(pending);
-      });
-      const end = () => {
-        if (!this._dragging) return;
-        this._dragging = false; el.classList.remove('dragging');
-        this._setPct(pending);
-      };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      el.addEventListener('keydown', (e) => {
-        const cur = Number(el.getAttribute('aria-valuenow')) || 0;
-        let next = cur;
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = P.clamp(cur + 5, 0, 100);
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = P.clamp(cur - 5, 0, 100);
-        else if (e.key === 'Home') next = 0;
-        else if (e.key === 'End') next = 100;
-        else return;
-        e.preventDefault();
-        paint(next); this._setPct(next);
-      });
+      if (canDim) {
+        P.dragSlider(this.shadowRoot.querySelector('.slider'), {
+          onDrag: (v) => { this._dragging = v; },
+          onCommit: (pct) => this._setPct(pct),
+          fillColor: (pct) => (pct > 0 ? this._color(this._hass.states[this._config.entity]) : 'var(--_text-2)'),
+        });
+      }
     }
   }
 
