@@ -505,6 +505,29 @@ accent: amber
 
 ---
 
+## `custom:prism-uv-card`
+
+Flat **UV-index tile**: a big value **coloured by its WHO risk band**, the category label + **sun-protection advice**, and a flat segmented **UV-ramp scale** (green → yellow → orange → red → purple) with a marker at the current value.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** A UV sensor (uses its state) or a `weather.*` entity (uses an attribute). |
+| `attribute` | string | `uv_index` | Attribute to read when `entity` is a weather entity (or to force reading an attribute). |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `show_advice` | bool | `true` | Show the protection-advice line. |
+| `show_scale` | bool | `true` | Show the UV-ramp scale + ticks. |
+
+Risk bands (WHO): **0–2** Low · **3–5** Moderate · **6–7** High · **8–10** Very high · **11+** Extreme. The value, category pill, and marker all follow the band colour. Tap opens more-info.
+
+```yaml
+type: custom:prism-uv-card
+entity: sensor.uv_index
+title: UV Index
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -527,5 +550,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Weather | 3 | 6 |
 | Forecast | 3 | 12 |
 | Sun | 3 | 6 |
+| UV | 3 | 6 |
 
 You can override with `grid_options` per card.
