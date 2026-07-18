@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.4.0';
+  const VERSION = '0.5.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -2294,6 +2294,29 @@
     return out;
   }
 
+  // Bucket already-sorted ids by area name. Returns an ordered array of
+  // { label, ids }: named areas alphabetically first, the "no area" bucket last.
+  // Within-group order is preserved from `ids` (i.e. the configured sort).
+  function groupByArea(hass, ids, ungroupedLabel) {
+    const buckets = new Map(); // label -> ids[]
+    let ungrouped = null;
+    for (const id of ids) {
+      const label = areaName(hass, id);
+      if (label) {
+        if (!buckets.has(label)) buckets.set(label, []);
+        buckets.get(label).push(id);
+      } else {
+        if (!ungrouped) ungrouped = [];
+        ungrouped.push(id);
+      }
+    }
+    const groups = [...buckets.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([label, gids]) => ({ label, ids: gids }));
+    if (ungrouped) groups.push({ label: ungroupedLabel, ids: ungrouped });
+    return groups;
+  }
+
   // ── Editor ────────────────────────────────────────────────────────
   class PrismFilterCardEditor extends P.PrismEditor {
     _fields(stack) {
@@ -2356,6 +2379,10 @@
           { value: 'list', label: 'List (rows)' },
           { value: 'chips', label: 'Chips (grid)' },
         ], c.layout || 'list', (v) => this._patch('layout', v)),
+        this._select('Group by', [
+          { value: '', label: 'None' },
+          { value: 'area', label: 'Area (sub-headers)' },
+        ], c.group_by || '', (v) => this._patch('group_by', v)),
         this._select('Sort', [
           { value: 'name', label: 'Name' },
           { value: 'state', label: 'State' },
@@ -2389,6 +2416,7 @@
       this._config = null;
       this._hass = null;
       this._count = 0;
+      this._groupCount = 0;
     }
 
     setConfig(config) {
@@ -2403,12 +2431,14 @@
 
     getCardSize() {
       const n = Math.max(1, this._count);
-      return 1 + (this._config?.layout === 'chips' ? Math.ceil(n / 2) : n);
+      const body = this._config?.layout === 'chips' ? Math.ceil(n / 2) : n;
+      return 1 + body + this._groupCount; // each area sub-header ≈ one row
     }
     getGridOptions() {
       // Chips wrap ~2 per grid column, so they need far fewer rows than a list.
       const n = this._config?.layout === 'chips' ? Math.ceil(Math.max(1, this._count) / 2) : Math.max(1, this._count);
-      return { rows: Math.max(2, n + (this._config?.title || this._config?.show_count !== false ? 2 : 1)), columns: 6, min_rows: 2, min_columns: 4 };
+      const rows = n + this._groupCount + (this._config?.title || this._config?.show_count !== false ? 2 : 1);
+      return { rows: Math.max(2, rows), columns: 6, min_rows: 2, min_columns: 4 };
     }
 
     static getConfigElement() { return document.createElement('prism-filter-card-editor'); }
@@ -2440,8 +2470,10 @@
 
       const ids = computeMatches(hass, c);
       this._count = ids.length;
+      const isChips = c.layout === 'chips';
 
-      const rowsHtml = ids.map((id, i) => {
+      // One list row: icon · name · optional secondary · value or inline toggle.
+      const rowHtml = (id, i) => {
         const st = hass.states[id];
         const domain = domainOf(id);
         const name = P.friendlyName(hass, id);
@@ -2486,12 +2518,11 @@
             </span>
             ${right}
           </div>`;
-      }).join('');
+      };
 
-      // Chip layout: compact pills that wrap. Toggleable + active entities fill
-      // with the accent (so a "lights on" card reads at a glance); sensors show
-      // their value inline. Tap toggles (or opens more-info); hold = more-info.
-      const chipsHtml = ids.map((id) => {
+      // One chip: compact pill. Toggleable + active entities fill with the accent
+      // (so a "lights on" card reads at a glance); sensors show their value inline.
+      const chipHtml = (id) => {
         const st = hass.states[id];
         const domain = domainOf(id);
         const name = P.friendlyName(hass, id);
@@ -2507,7 +2538,6 @@
         const iconHtml = showIcons
           ? `<span class="cic" style="color:${iconColor}"><ha-icon icon="${P.esc(icon)}"></ha-icon></span>` : '';
 
-        // Trailing value for non-toggle entities (never a bare label for a sensor).
         let cval = '';
         if (!isToggle) {
           const unit = P.unitOf(hass, id, null);
@@ -2524,9 +2554,28 @@
             <span class="cnm">${P.esc(name)}</span>
             ${cval ? `<span class="cval">${cval}</span>` : ''}
           </button>`;
-      }).join('');
+      };
 
-      const isChips = c.layout === 'chips';
+      // Render a bucket of ids in the active layout (rows or wrapping chips).
+      const bucketHtml = (bucketIds) => isChips
+        ? `<div class="chips">${bucketIds.map(chipHtml).join('')}</div>`
+        : `<div class="rows">${bucketIds.map((id, i) => rowHtml(id, i)).join('')}</div>`;
+
+      // Body: flat, or grouped into sub-headed sections when group_by is set.
+      let bodyHtml;
+      this._groupCount = 0;
+      if (c.group_by === 'area' && ids.length) {
+        const groups = groupByArea(hass, ids, c.ungrouped_label || 'No area');
+        this._groupCount = groups.length;
+        bodyHtml = groups.map((g) => `
+          <div class="group">
+            <div class="group-head">${P.esc(g.label)}<span class="group-n">${g.ids.length}</span></div>
+            ${bucketHtml(g.ids)}
+          </div>`).join('');
+      } else {
+        bodyHtml = bucketHtml(ids);
+      }
+
       const count = ids.length;
       const countBadge = c.show_count !== false
         ? `<span class="count">${count}</span>` : '';
@@ -2570,13 +2619,19 @@
           .chip .cic { --mdc-icon-size:18px; width:18px; height:18px; flex:none; display:flex; align-items:center; justify-content:center; }
           .chip .cnm { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .chip .cval { font-size:12px; font-weight:600; opacity:.85; white-space:nowrap; flex:none; }
+          .group + .group { margin-top:10px; }
+          .group-head { display:flex; align-items:center; gap:8px; padding:8px 0 4px;
+                        font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+                        color:var(--_text-2); border-top:1px solid var(--_border); }
+          .group:first-child .group-head { border-top:none; padding-top:2px; }
+          .group-n { flex:none; min-width:16px; height:16px; padding:0 5px; border-radius:999px;
+                     display:inline-flex; align-items:center; justify-content:center;
+                     font-size:10px; font-weight:700; color:var(--_text-2); background:var(--_surface-2); }
           .empty { padding:14px 0 4px; font-size:13px; font-weight:500; color:var(--_text-2); text-align:center; }
         </style>
         <div class="prism-card">
           ${header}
-          ${count
-            ? (isChips ? `<div class="chips">${chipsHtml}</div>` : `<div class="rows">${rowsHtml}</div>`)
-            : `<div class="empty">${P.esc(empty)}</div>`}
+          ${count ? bodyHtml : `<div class="empty">${P.esc(empty)}</div>`}
         </div>`;
 
       if (isChips) {
