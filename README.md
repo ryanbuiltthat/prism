@@ -144,8 +144,8 @@ accent: blue
 type: custom:prism-forecast-card
 entity: weather.home
 title: Forecast
-type: daily        # or: hourly
-count: 7           # number of columns
+forecast_type: daily   # or: hourly
+count: 7               # number of columns
 accent: blue
 ```
 
