@@ -120,6 +120,31 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Weather + Forecast cards + shared flat icon set (v0.7.0)
+- Added a **shared flat weather-icon system** to `prism-shared.js`: `weatherIcon`
+  (inline SVG per HA condition — sun/moon/cloud/rain/pouring/snow/sleet/hail/
+  fog/lightning/windy/exceptional), `WEATHER_CSS` (flat palette + gentle
+  animations, stilled by the reduced-motion rule), `WEATHER_LABELS`, and
+  `fetchForecast(hass, id, type)` (calls `weather.get_forecasts` via callWS with
+  `return_response`). Google-weather-ish but flat + theme-driven.
+- **`prism-weather-card`** (`src/prism-weather-card.js`): current conditions —
+  big temperature, animated condition icon, feels-like + today H/L (from the
+  daily forecast), and humidity/wind/pressure chips. Reads a `weather.*` entity.
+- **`prism-forecast-card`** (`src/prism-forecast-card.js`): daily/hourly strip —
+  one column per period (Today/Now + weekday/hour), flat icon, hi/lo, precip
+  chance; horizontal scroll on overflow. `type`/`count`/`show_precip`/`animate`.
+- Both throttle the forecast fetch (15 min) and re-render on resolve. Now 16 cards.
+- Wired into build.sh / build.ps1 / smoke.js (weather.x fixture enriched +
+  get_forecasts branch in callWS + 4 cases) / preview.html (weather.home enriched
+  + daily/hourly forecast mock + 2 demos). README table + 2 quick-starts; full
+  docs/cards.md sections + sizing rows. VERSION 0.6.0 → 0.7.0.
+- Verified in real Chromium (screenshots): weather card 18° "Partly cloudy",
+  Feels 16° H:21 L:9, chips 62% / 24 km/h NW / 1,013 hPa, flat partly-cloudy
+  icon; forecast 7 cols Today…Fri with distinct flat icons, hi/lo, precip. No
+  console errors.
+- **Possible next:** regenerate showcase images to include the two weather cards;
+  a UV / air-quality / sun (sunrise-sunset) card to round out the weather set.
+
 ### 2026-07-18 — Wind card (v0.6.0)
 - Added **`prism-wind-card`** (`src/prism-wind-card.js`): flat, data-first wind
   tile. Dominant wind-speed value; a flat **compass rose** with an accent arrow

@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.6.0';
+  const VERSION = '0.7.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -288,6 +288,118 @@
   // Uses the shared .prism-head / .prism-title styles in TOKEN_STYLE.
   function titleHead(title) {
     return title ? `<div class="prism-head"><div class="prism-title">${esc(title)}</div></div>` : '';
+  }
+
+  // ── Weather: shared flat icon set + helpers (weather + forecast cards) ──
+
+  // Human labels for Home Assistant weather condition states.
+  const WEATHER_LABELS = {
+    'clear-night': 'Clear', cloudy: 'Cloudy', fog: 'Fog', hail: 'Hail',
+    lightning: 'Lightning', 'lightning-rainy': 'Thunderstorms', partlycloudy: 'Partly cloudy',
+    pouring: 'Pouring', rainy: 'Rainy', snowy: 'Snowy', 'snowy-rainy': 'Sleet',
+    sunny: 'Sunny', windy: 'Windy', 'windy-variant': 'Windy', exceptional: 'Severe',
+  };
+
+  // Flat condition-icon palette + gentle animations. Include once per card
+  // <style> (via WEATHER_CSS); TOKEN_STYLE's reduced-motion rule stills them.
+  const WEATHER_CSS = `
+    .wx { display:block; overflow:visible; }
+    .wx-sun { fill:#f2b03a; } .wx-ray { stroke:#f2b03a; stroke-linecap:round; }
+    .wx-moon { fill:#cdd6e5; } .wx-star { fill:#e6ecf5; }
+    .wx-cloud { fill:#aab4c0; } .wx-cloud2 { fill:#c6ced8; }
+    .wx-rain { stroke:#4f9fe6; stroke-linecap:round; }
+    .wx-snow { fill:#dbe8f6; } .wx-bolt { fill:#f4c740; } .wx-fog { stroke:#aab4c0; stroke-linecap:round; }
+    .wx-animated .wx-rays-g { transform-origin:center; animation:wx-spin 22s linear infinite; }
+    .wx-animated .wx-cloud-g { animation:wx-drift 6s ease-in-out infinite; }
+    .wx-animated .wx-rain { animation:wx-fall 1.1s linear infinite; }
+    .wx-animated .wx-snow { animation:wx-fall 2.6s linear infinite; }
+    .wx-animated .wx-bolt { animation:wx-flicker 3.2s steps(1,end) infinite; }
+    @keyframes wx-spin { to { transform:rotate(360deg); } }
+    @keyframes wx-drift { 0%,100% { transform:translateX(0); } 50% { transform:translateX(2px); } }
+    @keyframes wx-fall { 0% { transform:translateY(-3px); opacity:0; } 25% { opacity:1; } 100% { transform:translateY(7px); opacity:0; } }
+    @keyframes wx-flicker { 0%,90%,100% { opacity:1; } 93% { opacity:.2; } 95% { opacity:1; } 97% { opacity:.45; } }
+  `;
+
+  // Build a flat weather-condition icon as an inline SVG string (viewBox 64).
+  // opts.size (px, default 64), opts.animated (adds the .wx-animated class).
+  function weatherIcon(condition, opts = {}) {
+    const size = opts.size || 64;
+    const c = String(condition || '').toLowerCase();
+    const cls = 'wx' + (opts.animated ? ' wx-animated' : '');
+
+    const sun = (cx, cy, r) => {
+      let rays = '';
+      for (let i = 0; i < 8; i++) {
+        const a = (i * 45 * Math.PI) / 180;
+        const x1 = cx + Math.cos(a) * (r + 3), y1 = cy + Math.sin(a) * (r + 3);
+        const x2 = cx + Math.cos(a) * (r + 8), y2 = cy + Math.sin(a) * (r + 8);
+        rays += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="wx-ray" stroke-width="3"/>`;
+      }
+      return `<g class="wx-rays-g">${rays}</g><circle cx="${cx}" cy="${cy}" r="${r}" class="wx-sun"/>`;
+    };
+    const moon = (cx, cy, r) =>
+      `<path d="M${cx + r} ${cy - r * 0.75} a${r} ${r} 0 1 0 0 ${r * 1.5} a${r * 0.8} ${r * 0.8} 0 1 1 0 ${-r * 1.5} z" class="wx-moon"/>` +
+      `<circle cx="${cx + r + 6}" cy="${cy - r - 2}" r="1.6" class="wx-star"/>`;
+    const cloud = (x, y, s, klass) =>
+      `<g class="wx-cloud-g" transform="translate(${x},${y}) scale(${s})">
+        <circle cx="0" cy="7" r="10" class="${klass}"/>
+        <circle cx="13" cy="0" r="13" class="${klass}"/>
+        <circle cx="27" cy="8" r="10" class="${klass}"/>
+        <rect x="-10" y="9" width="47" height="13" rx="6.5" class="${klass}"/>
+      </g>`;
+    const rain = (xs, y) => xs.map((x, i) =>
+      `<line x1="${x}" y1="${y}" x2="${x - 3}" y2="${y + 8}" class="wx-rain" stroke-width="3" style="animation-delay:${(i * 0.22).toFixed(2)}s"/>`).join('');
+    const snow = (xs, y) => xs.map((x, i) =>
+      `<circle cx="${x}" cy="${y + (i % 2) * 4}" r="2.3" class="wx-snow" style="animation-delay:${(i * 0.4).toFixed(2)}s"/>`).join('');
+    const bolt = (x, y) => `<path d="M${x} ${y} l-6 12 h5 l-3 12 l12 -16 h-6 l4 -8 z" class="wx-bolt"/>`;
+
+    let body;
+    switch (c) {
+      case 'sunny': body = sun(32, 30, 12); break;
+      case 'clear-night': body = moon(28, 30, 12); break;
+      case 'partlycloudy': body = sun(40, 20, 8) + cloud(10, 26, 0.92, 'wx-cloud'); break;
+      case 'cloudy': body = cloud(8, 20, 1, 'wx-cloud2') + cloud(14, 26, 1, 'wx-cloud'); break;
+      case 'fog':
+        body = cloud(12, 20, 0.95, 'wx-cloud') +
+          [42, 48, 54].map((y) => `<line x1="8" y1="${y}" x2="56" y2="${y}" class="wx-fog" stroke-width="3"/>`).join('');
+        break;
+      case 'rainy': body = cloud(12, 18, 0.95, 'wx-cloud') + rain([20, 30, 40], 44); break;
+      case 'pouring': body = cloud(12, 16, 0.95, 'wx-cloud') + rain([16, 24, 32, 40, 48], 42); break;
+      case 'snowy': body = cloud(12, 18, 0.95, 'wx-cloud') + snow([20, 30, 40], 44); break;
+      case 'snowy-rainy': body = cloud(12, 18, 0.95, 'wx-cloud') + rain([20, 40], 44) + snow([30], 44); break;
+      case 'hail': body = cloud(12, 18, 0.95, 'wx-cloud') + snow([20, 30, 40], 46); break;
+      case 'lightning': body = cloud(12, 16, 0.95, 'wx-cloud') + bolt(30, 34); break;
+      case 'lightning-rainy': body = cloud(12, 14, 0.95, 'wx-cloud') + bolt(28, 32) + rain([18, 44], 44); break;
+      case 'windy':
+      case 'windy-variant':
+        body = `<g class="wx-cloud-g">
+          <path d="M8 24 h30 a6 6 0 1 0 -6 -6" class="wx-fog" fill="none" stroke-width="3.5"/>
+          <path d="M8 36 h38 a6 6 0 1 1 -6 6" class="wx-fog" fill="none" stroke-width="3.5"/>
+          <path d="M8 48 h22 a5 5 0 1 0 -5 -5" class="wx-fog" fill="none" stroke-width="3.5"/></g>`;
+        break;
+      case 'exceptional':
+        body = cloud(12, 18, 0.95, 'wx-cloud') +
+          `<rect x="30" y="34" width="4" height="12" rx="2" class="wx-bolt"/><circle cx="32" cy="51" r="2.4" class="wx-bolt"/>`;
+        break;
+      default: body = cloud(12, 22, 1, 'wx-cloud');
+    }
+    return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">${body}</svg>`;
+  }
+
+  // Fetch a weather entity's forecast via the get_forecasts service (modern HA,
+  // return_response). type: 'daily' | 'hourly' | 'twice_daily'. Never throws.
+  async function fetchForecast(hass, entityId, type = 'daily') {
+    if (!hass || !entityId || !hass.callWS) return [];
+    try {
+      const res = await hass.callWS({
+        type: 'call_service', domain: 'weather', service: 'get_forecasts',
+        service_data: { type }, target: { entity_id: entityId }, return_response: true,
+      });
+      const r = res && res.response && res.response[entityId];
+      return (r && r.forecast) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -606,6 +718,10 @@
     bindTap,
     dragSlider,
     titleHead,
+    WEATHER_LABELS,
+    WEATHER_CSS,
+    weatherIcon,
+    fetchForecast,
     PrismEditor,
   };
 
