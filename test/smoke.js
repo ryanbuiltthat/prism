@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -62,6 +62,7 @@ const hass = {
     'media_player.x': { state: 'playing', attributes: { friendly_name: 'Speaker', media_title: 'Song', media_artist: 'Artist', volume_level: 0.4, supported_features: 16437 } },
     'weather.x': { state: 'partlycloudy', attributes: { friendly_name: 'Home', temperature: 18, apparent_temperature: 16, temperature_unit: '°C', humidity: 62, pressure: 1013, pressure_unit: 'hPa', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h' } },
     'sensor.wind_dir': { state: 'NW', attributes: { friendly_name: 'Wind Dir' } },
+    'sun.sun': { state: 'above_horizon', attributes: { friendly_name: 'Sun', next_rising: new Date(now + 20 * 3600000).toISOString(), next_setting: new Date(now + 6 * 3600000).toISOString(), elevation: 34, azimuth: 210 } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -138,6 +139,8 @@ check('parses compact history', async () => {});
     ['prism-weather-card', { entity: 'weather.x', show_pressure: false, animate: false }],
     ['prism-forecast-card', { entity: 'weather.x', type: 'daily', count: 5 }],
     ['prism-forecast-card', { entity: 'weather.x', type: 'hourly', count: 8, show_precip: false }],
+    ['prism-sun-card', { entity: 'sun.sun', title: 'Sun' }],
+    ['prism-sun-card', { entity: 'sun.sun', accent: 'orange' }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {

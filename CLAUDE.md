@@ -120,6 +120,24 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Sun (sunrise/sunset) card (v0.8.0)
+- Added **`prism-sun-card`** (`src/prism-sun-card.js`): a flat sun-path arc.
+  Semicircular sky dome (SVG polyline arc); the traveled portion (sunrise→now)
+  is filled with the accent, the sun rides the arc with 8 rays, sunrise/sunset
+  icons + times sit at each end, and a live "Sets in / Rises in" countdown is
+  centered. Night → moon on the horizon, arc rests. Reads `sun.sun`
+  (`next_rising`/`next_setting`/`elevation`/state). Daytime progress: today's
+  sunset = next_setting; today's sunrise ≈ next_rising − 1 day (viz-good).
+- Now 17 cards. Wired into build.sh / build.ps1 / smoke.js (sun.sun fixture +
+  2 cases) / preview.html (sun.sun mock anchored to today 20:24 / tomorrow 06:12
+  + demo). README table + quick-start; full docs/cards.md section + sizing row.
+  VERSION 0.7.0 → 0.8.0.
+- Verified in real Chromium (screenshot): amber dome with sun mid-arc + rays,
+  filled traveled portion, horizon line, 06:12 AM / 08:24 PM ends, countdown.
+  No console errors.
+- **Possible next:** UV index / air-quality card; regenerate showcase images to
+  include the weather/forecast/sun cards.
+
 ### 2026-07-18 — Weather + Forecast cards + shared flat icon set (v0.7.0)
 - Added a **shared flat weather-icon system** to `prism-shared.js`: `weatherIcon`
   (inline SVG per HA condition — sun/moon/cloud/rain/pouring/snow/sleet/hail/

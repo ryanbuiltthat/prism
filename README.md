@@ -46,6 +46,7 @@ Prism is two things working together:
 | **Wind** | `custom:prism-wind-card` | Wind tile: dominant speed, a flat compass rose with an accent direction arrow, Beaufort descriptor, gusts, and animated flat wind-streak accents that intensify with the wind. Reads a `weather.*` entity or individual sensors. |
 | **Weather** | `custom:prism-weather-card` | Current-conditions tile: big temperature, a flat animated condition icon, feels-like + today's high/low, and humidity / wind / pressure chips. Reads a `weather.*` entity. |
 | **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity's forecast. |
+| **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc (a moon below the horizon at night), the traveled portion filled with the accent, and a live "sets in / rises in" countdown. Reads `sun.sun`. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -145,6 +146,14 @@ title: Forecast
 type: daily        # or: hourly
 count: 7           # number of columns
 accent: blue
+```
+
+```yaml
+# Sun — sunrise/sunset arc with a live countdown. Reads sun.sun.
+type: custom:prism-sun-card
+entity: sun.sun
+title: Sun
+accent: amber
 ```
 
 ```yaml
