@@ -108,9 +108,13 @@
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
-      areas: { living_room: { area_id: 'living_room', name: 'Living Room' } },
+      areas: {
+        living_room: { area_id: 'living_room', name: 'Living Room' },
+        study: { area_id: 'study', name: 'Study' },
+      },
       entities: {
         'light.living_room': { area_id: 'living_room' },
+        'light.desk': { area_id: 'study' },
         'sensor.lr_temperature': { area_id: 'living_room' },
         'sensor.lr_humidity': { area_id: 'living_room' },
       },
@@ -163,6 +167,7 @@
         { entity: 'sensor.lr_temperature', use_area: true, icon: 'mdi:thermometer', secondary: 'sensor.lr_humidity' },
         { entity: 'sensor.house_power', name: 'Power', icon: 'mdi:flash' },
       ] } },
+      { type: 'prism-filter-card', cfg: { title: 'Lights on', domain: 'light', condition: 'on', accent: 'amber', secondary: 'area' } },
       { type: 'prism-switch-card', cfg: { entity: 'switch.coffee', name: 'Coffee Maker', icon: 'mdi:coffee', accent: 'orange', secondary: 'state' } },
       { type: 'prism-light-card', cfg: { entity: 'light.desk', name: 'Desk Lamp', title: 'Study' } },
       { type: 'prism-light-card', cfg: { entity: 'light.living_room', name: 'Living Room', accent: 'amber' } },
