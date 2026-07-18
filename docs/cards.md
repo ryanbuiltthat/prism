@@ -483,6 +483,28 @@ accent: blue
 
 ---
 
+## `custom:prism-sun-card`
+
+Flat **sun-path arc**: a dome of the sky from sunrise to sunset with the sun riding along it (a moon below the horizon at night), the **traveled portion filled with the accent**, **sunrise/sunset times** at each end, and a live **"sets in / rises in"** countdown in the middle.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | `sun.sun` | The sun entity. Uses its `next_rising`, `next_setting`, `elevation`, and state. |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `accent` | string | `amber` | Colours the traveled arc and the sun. |
+
+Daytime progress uses the next setting as today's sunset and approximates today's sunrise from the next rising; at night the arc rests and a moon sits on the horizon. Tap opens more-info.
+
+```yaml
+type: custom:prism-sun-card
+entity: sun.sun
+title: Sun
+accent: amber
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -504,5 +526,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Wind | 3 | 6 |
 | Weather | 3 | 6 |
 | Forecast | 3 | 12 |
+| Sun | 3 | 6 |
 
 You can override with `grid_options` per card.
