@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.5.0';
+  const VERSION = '0.5.1';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -193,10 +193,25 @@
   }
 
   // ── Card registry helper ──────────────────────────────────────────
+  // Base for the per-card documentation links surfaced in HA's card picker.
+  const DOCS_BASE = 'https://github.com/ryanbuiltthat/prism/blob/main/docs/cards.md';
+
+  // Deep-link to a card's section in the card reference. The docs headings are
+  // "## `custom:<type>`", which GitHub slugifies to "custom<type>" (the colon
+  // is stripped), so the anchor is simply "custom" + the card type.
+  function docsUrl(type) {
+    return `${DOCS_BASE}#custom${type}`;
+  }
+
   function registerCard(entry) {
     window.customCards = window.customCards || [];
     if (!window.customCards.some((c) => c.type === entry.type)) {
-      window.customCards.push(Object.assign({ preview: true }, entry));
+      // `documentationURL` shows a "Documentation" link on each card's tile in
+      // the picker. Default it from the type; an entry may override it.
+      window.customCards.push(Object.assign(
+        { preview: true, documentationURL: docsUrl(entry.type) },
+        entry
+      ));
     }
   }
 
@@ -587,6 +602,7 @@
     downsample,
     sparklinePath,
     registerCard,
+    docsUrl,
     bindTap,
     dragSlider,
     titleHead,
