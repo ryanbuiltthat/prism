@@ -583,6 +583,29 @@ accent: blue
 
 ---
 
+## `custom:prism-aqi-card`
+
+Flat **air-quality tile**: a big AQI value **coloured by its US EPA category**, the category pill + **health advice**, and a flat segmented scale of the six EPA categories (Good → Hazardous) with a marker at the current value.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** An AQI sensor (US EPA, 0–500) — uses its state. |
+| `attribute` | string | — | Read an attribute instead of the state. |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `show_advice` | bool | `true` | Show the health-advice line. |
+| `show_scale` | bool | `true` | Show the Good→Hazardous scale + ticks. |
+
+Categories (US EPA): **0–50** Good · **51–100** Moderate · **101–150** Unhealthy for sensitive groups · **151–200** Unhealthy · **201–300** Very unhealthy · **301–500** Hazardous. The value, category pill, and marker all follow the category colour. Tap opens more-info.
+
+```yaml
+type: custom:prism-aqi-card
+entity: sensor.air_quality_index
+title: Air Quality
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -607,5 +630,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Sun | 3 | 6 |
 | UV | 3 | 6 |
 | Rain | 3 | 6 |
+| Air Quality | 3 | 6 |
 
 You can override with `grid_options` per card.

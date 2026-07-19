@@ -49,6 +49,7 @@ Prism is two things working together:
 | **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc (a moon below the horizon at night), the traveled portion filled with the accent, and a live "sets in / rises in" countdown. Reads `sun.sun`. |
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
+| **Air Quality** | `custom:prism-aqi-card` | AQI tile: a big value coloured by its US EPA category, the category + health advice, and a flat Good→Hazardous scale with a value marker. Reads an AQI sensor. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -168,6 +169,13 @@ weekly_entity: sensor.rain_weekly
 monthly_entity: sensor.rain_monthly
 accent: blue
 # max: 1        # event total that fills the gauge (default 1 in / 25 mm)
+```
+
+```yaml
+# Air quality — value coloured by US EPA category + a Good→Hazardous scale.
+type: custom:prism-aqi-card
+entity: sensor.air_quality_index
+title: Air Quality
 ```
 
 ```yaml

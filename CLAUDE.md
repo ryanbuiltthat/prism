@@ -132,6 +132,20 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Air Quality (AQI) card (v0.12.0)
+- Added **`prism-aqi-card`** (`src/prism-aqi-card.js`): flat AQI tile, same
+  segmented-scale family as the UV card. Big value coloured by US EPA category,
+  a category pill + health advice, and a **6 equal-block scale** (Good/Moderate/
+  Sensitive/Unhealthy/Very unhealthy/Hazardous) with a marker positioned by
+  block index + fractional progress; boundary ticks 0/50/100/150/200/300/500.
+  Reads an AQI sensor state (0–500) or an `attribute`.
+- Now 20 cards. Wired build.sh / build.ps1 / smoke.js (sensor.aqi fixture +
+  2 cases) / preview.html (mock + demo). README table + quick-start; full
+  docs/cards.md section + sizing row. VERSION 0.11.0 → 0.12.0.
+- Verified in real Chromium (screenshot): AQI 128 → orange "Sensitive",
+  "Sensitive groups may feel effects.", marker at 42.5% (in the orange block,
+  between the 100 and 150 ticks). No console errors.
+
 ### 2026-07-18 — Auto-regenerated showcase images
 - Regenerated `docs/assets/preview-{light,dark}.png` to include the UV + rain
   cards (full weather set now in the showcase).
