@@ -120,6 +120,29 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Rain card: animated gauge (v0.11.0)
+- **User request:** a rain card with a "cool animated gauge" showing rainfall
+  amounts; sensors available = event / 24h / hourly / intensity(in/hr) / weekly /
+  monthly; event amount + intensity are the biggest.
+- Added **`prism-rain-card`** (`src/prism-rain-card.js`): a flat measuring
+  cylinder (SVG, clip-path water fill) that fills to `event / max`; raindrops
+  fall into it (count/speed from the intensity rain-rate band) and a clipped
+  wave animates the water surface (reduced-motion stills both). Big **event**
+  value dominant; sub line = intensity value + rate descriptor (Light/Moderate/
+  Heavy/Violent, coloured by level); chips for hourly(1h)/daily(24h)/weekly(Wk)/
+  monthly(Mo). Tap gauge or chip → more-info.
+  - Config: `event_entity` (req) + `intensity_entity` / `hourly_entity` /
+    `daily_entity` / `weekly_entity` / `monthly_entity`, `max` (default 1 in /
+    25 mm), `animate`, `accent` (default blue). Intensity normalised to mm/h for
+    bands; inches → 2 dp else 1 dp.
+- Now 19 cards. Wired build.sh / build.ps1 / smoke.js (rain_* fixtures + 2 cases)
+  / preview.html (rain_* mock + demo). README table + quick-start; full
+  docs/cards.md section + sizing row. VERSION 0.10.0 → 0.11.0.
+- Verified in real Chromium (screenshot): tube ~42% full, 5 drops (Moderate),
+  0.42 in event, "0.15 in/h · Moderate", chips 1h/24h/Wk/Mo. No console errors.
+- **Possible next:** regenerate showcase to include UV + rain cards; an
+  air-quality (AQI) card.
+
 ### 2026-07-18 — Weather card: local-sensor overrides (v0.10.0)
 - **User request:** pair a weather service (condition + forecast) with local
   station sensors (Ecowitt) for the numeric readings.

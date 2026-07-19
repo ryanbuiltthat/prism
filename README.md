@@ -48,6 +48,7 @@ Prism is two things working together:
 | **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity's forecast. |
 | **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc (a moon below the horizon at night), the traveled portion filled with the accent, and a live "sets in / rises in" countdown. Reads `sun.sun`. |
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
+| **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -153,6 +154,20 @@ title: Forecast
 forecast_type: daily   # or: hourly
 count: 7               # number of columns
 accent: blue
+```
+
+```yaml
+# Rain — animated filling gauge; event total is the dominant value.
+type: custom:prism-rain-card
+title: Rainfall
+event_entity: sensor.rain_event
+intensity_entity: sensor.rain_rate      # in/h or mm/h — drives the drops
+hourly_entity: sensor.rain_hourly
+daily_entity: sensor.rain_24h
+weekly_entity: sensor.rain_weekly
+monthly_entity: sensor.rain_monthly
+accent: blue
+# max: 1        # event total that fills the gauge (default 1 in / 25 mm)
 ```
 
 ```yaml

@@ -22,7 +22,8 @@ $files = @(
   'src/prism-weather-card.js',
   'src/prism-forecast-card.js',
   'src/prism-sun-card.js',
-  'src/prism-uv-card.js'
+  'src/prism-uv-card.js',
+  'src/prism-rain-card.js'
 )
 
 $sb = [System.Text.StringBuilder]::new()
