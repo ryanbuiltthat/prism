@@ -21,7 +21,7 @@ Prism is two things working together:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/preview-dark.png">
-  <img alt="Prism cards — stat, gauge, sparkline, power, linear gauge, bar, and entities cards in a dashboard" src="docs/assets/preview-light.png">
+  <img alt="Prism cards in a Home Assistant dashboard — energy, gauges, sparklines, entities, weather, and more" src="docs/assets/preview-light.png">
 </picture>
 
 ---
@@ -61,9 +61,11 @@ The shared `PrismUI` runtime is built to grow — more cards may follow.
 
 ## Installation
 
-### Option A — HACS (recommended, for the cards)
+### Cards — via HACS (recommended)
 
-Prism isn't in the default HACS store yet, so add it as a **custom repository**:
+Prism's cards install through [HACS](https://hacs.xyz).
+
+**Custom repository (works today):**
 
 1. **HACS -> 3-dot menu (top right) -> Custom repositories**
 2. Repository: `ryanbuiltthat/prism` &nbsp;·&nbsp; Type: **Dashboard** &nbsp;·&nbsp; **Add**
@@ -71,23 +73,25 @@ Prism isn't in the default HACS store yet, so add it as a **custom repository**:
    `prism.js` as a dashboard resource for you.
 4. Hard-refresh your browser (Ctrl/Cmd + Shift + R).
 
-HACS installs the **cards** (this repo registers as a Lovelace plugin). The
-**theme** is a separate file — install it with step 2 below.
+> **Coming to the default HACS store:** Prism is being submitted to the default
+> HACS list. Once it's accepted you can skip the custom-repository step and just
+> search **Prism** in HACS -> Explore & download.
 
-### Option B — Manual
+### Cards — manual
 
-**1. Cards (frontend resource)** — copy **`prism.js`** into your HA `config/www/`
-folder, then add it as a resource:
+Copy **`prism.js`** into your HA `config/www/` folder, then add it as a resource:
 
 **Settings -> Dashboards -> (3-dot menu) -> Resources -> Add resource**
 - URL: `/local/prism.js`
 - Type: **JavaScript Module**
 
-*(Or, per dashboard, add it under `resources:` in raw YAML.)*
+*(Or add it under `resources:` in a dashboard's raw YAML.)*
 
-### 2. Theme
+### Theme (all install methods)
 
-Copy **`themes/prism.yaml`** into `config/themes/`, then in `configuration.yaml`:
+HACS installs the **cards** (this repo registers as a Lovelace **plugin**); the
+**theme** is a separate file either way. Copy **`themes/prism.yaml`** into
+`config/themes/`, then in `configuration.yaml`:
 
 ```yaml
 frontend:
