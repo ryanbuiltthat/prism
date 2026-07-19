@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -74,6 +74,7 @@ const hass = {
     'sensor.rain_daily': { state: '0.73', attributes: { friendly_name: 'Rain 24h', unit_of_measurement: 'in' } },
     'sensor.rain_weekly': { state: '1.9', attributes: { friendly_name: 'Rain Weekly', unit_of_measurement: 'in' } },
     'sensor.rain_monthly': { state: '4.2', attributes: { friendly_name: 'Rain Monthly', unit_of_measurement: 'in' } },
+    'sensor.aqi': { state: '128', attributes: { friendly_name: 'Air Quality', unit_of_measurement: 'AQI' } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -157,6 +158,8 @@ check('parses compact history', async () => {});
     ['prism-uv-card', { entity: 'weather.x', attribute: 'uv_index', show_advice: false }],
     ['prism-rain-card', { title: 'Rain', event_entity: 'sensor.rain_event', intensity_entity: 'sensor.rain_rate', hourly_entity: 'sensor.rain_hourly', daily_entity: 'sensor.rain_daily', weekly_entity: 'sensor.rain_weekly', monthly_entity: 'sensor.rain_monthly' }],
     ['prism-rain-card', { event_entity: 'sensor.rain_event', animate: false, max: 2 }],
+    ['prism-aqi-card', { entity: 'sensor.aqi', title: 'Air Quality' }],
+    ['prism-aqi-card', { entity: 'sensor.aqi', show_advice: false, show_scale: false }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {
