@@ -550,6 +550,39 @@ title: UV Index
 
 ---
 
+## `custom:prism-rain-card`
+
+Animated flat **rain-gauge tile**: a measuring cylinder **fills with the current rain-event total**, and raindrops **fall into it at a rate set by the intensity** (rain rate). The event amount is the dominant value, with the intensity + a **rain-rate descriptor** (Light / Moderate / Heavy / Violent) beside it, and chips for the hourly / 24-hour / weekly / monthly totals.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `event_entity` | string | — | **Required.** Rain-event total sensor — fills the gauge and is the big value. |
+| `intensity_entity` | string | — | Rain rate (e.g. `in/h` or `mm/h`); sets the drop density/speed + descriptor. |
+| `hourly_entity` | string | — | Hourly total (chip). |
+| `daily_entity` | string | — | 24-hour total (chip). |
+| `weekly_entity` | string | — | Weekly total (chip). |
+| `monthly_entity` | string | — | Monthly total (chip). |
+| `max` | number | `1` in / `25` mm | Event total that fills the gauge to the top. |
+| `animate` | bool | `true` | Falling drops + water surface (respects `prefers-reduced-motion`). |
+| `title` | string | — | Card header. |
+| `accent` | string | `blue` | Water + drops colour. |
+
+Units follow each sensor's `unit_of_measurement` (inches → 2 decimals, else 1); the intensity is normalised to mm/h for the descriptor. Tap the gauge (or a chip) for more-info.
+
+```yaml
+type: custom:prism-rain-card
+title: Rainfall
+event_entity: sensor.rain_event
+intensity_entity: sensor.rain_rate
+hourly_entity: sensor.rain_hourly
+daily_entity: sensor.rain_24h
+weekly_entity: sensor.rain_weekly
+monthly_entity: sensor.rain_monthly
+accent: blue
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -573,5 +606,6 @@ Cards implement `getGridOptions()` for the sections layout:
 | Forecast | 3 | 12 |
 | Sun | 3 | 6 |
 | UV | 3 | 6 |
+| Rain | 3 | 6 |
 
 You can override with `grid_options` per card.

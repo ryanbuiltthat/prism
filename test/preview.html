@@ -112,6 +112,12 @@
         'sensor.eco_hum':        { state: '58', attributes: { friendly_name: 'Outdoor Humidity', unit_of_measurement: '%', device_class: 'humidity' } },
         'sensor.eco_wind':       { state: '11.7', attributes: { friendly_name: 'Wind Speed', unit_of_measurement: 'mph' } },
         'sensor.eco_dir':        { state: '270', attributes: { friendly_name: 'Wind Direction', unit_of_measurement: '°' } },
+        'sensor.rain_event':     { state: '0.42', attributes: { friendly_name: 'Rain Event', unit_of_measurement: 'in' } },
+        'sensor.rain_rate':      { state: '0.15', attributes: { friendly_name: 'Rain Rate', unit_of_measurement: 'in/h' } },
+        'sensor.rain_hourly':    { state: '0.08', attributes: { friendly_name: 'Rain Hourly', unit_of_measurement: 'in' } },
+        'sensor.rain_daily':     { state: '0.73', attributes: { friendly_name: 'Rain 24h', unit_of_measurement: 'in' } },
+        'sensor.rain_weekly':    { state: '1.9', attributes: { friendly_name: 'Rain Weekly', unit_of_measurement: 'in' } },
+        'sensor.rain_monthly':   { state: '4.2', attributes: { friendly_name: 'Rain Monthly', unit_of_measurement: 'in' } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -205,6 +211,7 @@
       { type: 'prism-forecast-card', cfg: { entity: 'weather.home', title: 'Forecast', forecast_type: 'daily', count: 7, accent: 'blue' }, wide: true },
       { type: 'prism-sun-card', cfg: { entity: 'sun.sun', title: 'Sun', accent: 'amber' } },
       { type: 'prism-uv-card', cfg: { entity: 'sensor.uv_index', title: 'UV Index' } },
+      { type: 'prism-rain-card', cfg: { title: 'Rainfall', accent: 'blue', event_entity: 'sensor.rain_event', intensity_entity: 'sensor.rain_rate', hourly_entity: 'sensor.rain_hourly', daily_entity: 'sensor.rain_daily', weekly_entity: 'sensor.rain_weekly', monthly_entity: 'sensor.rain_monthly' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];
