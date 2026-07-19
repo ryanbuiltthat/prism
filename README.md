@@ -1,7 +1,7 @@
 # Prism
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
-[![GitHub release](https://img.shields.io/github/v/release/ryanbuiltthat/prism?sort=semver)](https://github.com/ryanbuiltthat/prism/releases)
+[![GitHub release](https://img.shields.io/github/v/tag/ryanbuiltthat/prism?sort=semver&label=release)](https://github.com/ryanbuiltthat/prism/releases)
 
 **A flat, minimal, data-first design system for Home Assistant** — a theme plus a
 growing set of custom cards built for clean statistics, energy monitoring, and
