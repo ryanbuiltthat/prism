@@ -445,13 +445,35 @@ Flat **current-conditions tile**: a big temperature, a flat **animated condition
 | `show_wind` | bool | `true` | Wind chip (`wind_speed` + `wind_speed_unit` + cardinal). |
 | `show_pressure` | bool | `true` | Pressure chip (`pressure` + `pressure_unit`). |
 
-Temperature, feels-like (`apparent_temperature`), humidity, wind, and pressure come from the weather entity's attributes; units follow its `*_unit` attributes. Tap opens more-info.
+By default temperature, feels-like (`apparent_temperature`), humidity, wind, and pressure come from the weather entity's attributes (units follow its `*_unit` attributes). Any of them can instead be sourced from a **local sensor** — handy when a weather service gives the condition + forecast but a local station (e.g. **Ecowitt**) gives more accurate readings:
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `temperature_entity` | string | Sensor for the big temperature. |
+| `feels_like_entity` | string | Sensor for feels-like. |
+| `humidity_entity` | string | Sensor for the humidity chip. |
+| `wind_speed_entity` | string | Sensor for the wind chip (its unit is used). |
+| `wind_bearing_entity` | string | Wind-direction sensor — degrees or a cardinal like `NW`. |
+| `pressure_entity` | string | Sensor for the pressure chip. |
+
+The **condition icon and today's high/low always come from the weather `entity`**; only the overridden fields switch to sensors. Tap opens more-info.
 
 ```yaml
 type: custom:prism-weather-card
 entity: weather.home
 title: Weather
 accent: blue
+```
+
+```yaml
+# Condition + forecast from a weather service; readings from local (Ecowitt) sensors.
+type: custom:prism-weather-card
+entity: weather.home
+temperature_entity: sensor.gw2000_outdoor_temperature
+humidity_entity: sensor.gw2000_humidity
+wind_speed_entity: sensor.gw2000_wind_speed
+wind_bearing_entity: sensor.gw2000_wind_direction
+pressure_entity: sensor.gw2000_relative_pressure
 ```
 
 ---

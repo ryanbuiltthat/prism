@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.9.1';
+  const VERSION = '0.10.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -3980,7 +3980,15 @@
         this._section('Detail chips'),
         this._switch('Humidity', c.show_humidity !== false, (v) => this._patch('show_humidity', v)),
         this._switch('Wind', c.show_wind !== false, (v) => this._patch('show_wind', v)),
-        this._switch('Pressure', c.show_pressure !== false, (v) => this._patch('show_pressure', v))
+        this._switch('Pressure', c.show_pressure !== false, (v) => this._patch('show_pressure', v)),
+        this._section('Local sensor sources (optional)'),
+        this._hint('Override any field with a local sensor (e.g. Ecowitt). The weather entity still provides the condition icon and high/low.'),
+        this._picker('Temperature sensor', c.temperature_entity, (v) => this._patch('temperature_entity', v), { domains: ['sensor'] }),
+        this._picker('Feels-like sensor', c.feels_like_entity, (v) => this._patch('feels_like_entity', v), { domains: ['sensor'] }),
+        this._picker('Humidity sensor', c.humidity_entity, (v) => this._patch('humidity_entity', v), { domains: ['sensor'] }),
+        this._picker('Wind speed sensor', c.wind_speed_entity, (v) => this._patch('wind_speed_entity', v), { domains: ['sensor'] }),
+        this._picker('Wind direction sensor', c.wind_bearing_entity, (v) => this._patch('wind_bearing_entity', v), { domains: ['sensor'] }),
+        this._picker('Pressure sensor', c.pressure_entity, (v) => this._patch('pressure_entity', v), { domains: ['sensor'] })
       );
     }
   }
@@ -4043,8 +4051,35 @@
       const condition = st ? st.state : '';
       const name = c.name || (a.friendly_name || c.entity);
 
-      const temp = roundTemp(parseFloat(a.temperature));
-      const feels = roundTemp(parseFloat(a.apparent_temperature));
+      // Each numeric field prefers a configured local sensor (e.g. Ecowitt),
+      // falling back to the weather entity's attribute. Condition + H/L always
+      // come from the weather entity.
+      const hass = this._hass;
+      const has = (id) => id && hass.states[id];
+      const fieldNum = (overrideId, attrName) =>
+        (has(overrideId) ? P.num(hass, overrideId) : (a[attrName] != null ? parseFloat(a[attrName]) : NaN));
+      const fieldUnit = (overrideId, attrUnit, fallback) =>
+        (has(overrideId) ? P.unitOf(hass, overrideId, '') : (attrUnit || fallback || ''));
+
+      const temp = roundTemp(fieldNum(c.temperature_entity, 'temperature'));
+      const feels = roundTemp(fieldNum(c.feels_like_entity, 'apparent_temperature'));
+      const humRaw = fieldNum(c.humidity_entity, 'humidity');
+      const windRaw = fieldNum(c.wind_speed_entity, 'wind_speed');
+      const windUnit = fieldUnit(c.wind_speed_entity, a.wind_speed_unit, '');
+      const presRaw = fieldNum(c.pressure_entity, 'pressure');
+      const presUnit = fieldUnit(c.pressure_entity, a.pressure_unit, 'hPa');
+
+      // Wind direction: an override sensor (degrees or a cardinal string) or the
+      // weather entity's wind_bearing.
+      let dir = '';
+      if (has(c.wind_bearing_entity)) {
+        const bs = hass.states[c.wind_bearing_entity].state;
+        const bn = parseFloat(bs);
+        dir = isNaN(bn) ? String(bs).toUpperCase() : cardinal8(bn);
+      } else {
+        dir = cardinal8(parseFloat(a.wind_bearing));
+      }
+
       const today = this._forecast[0] || {};
       const hi = roundTemp(parseFloat(today.temperature));
       const lo = roundTemp(parseFloat(today.templow));
@@ -4059,17 +4094,14 @@
 
       // Detail chips.
       const chips = [];
-      if (c.show_humidity !== false && a.humidity != null) {
-        chips.push(`<span class="chip"><ha-icon icon="mdi:water-percent"></ha-icon>${P.esc(Math.round(a.humidity))}%</span>`);
+      if (c.show_humidity !== false && !isNaN(humRaw)) {
+        chips.push(`<span class="chip"><ha-icon icon="mdi:water-percent"></ha-icon>${P.esc(Math.round(humRaw))}%</span>`);
       }
-      if (c.show_wind !== false && a.wind_speed != null) {
-        const wu = a.wind_speed_unit || '';
-        const dir = cardinal8(parseFloat(a.wind_bearing));
-        chips.push(`<span class="chip"><ha-icon icon="mdi:weather-windy"></ha-icon>${P.esc(P.fmtNumber(parseFloat(a.wind_speed), 0))}${wu ? ` ${P.esc(wu)}` : ''}${dir ? ` ${dir}` : ''}</span>`);
+      if (c.show_wind !== false && !isNaN(windRaw)) {
+        chips.push(`<span class="chip"><ha-icon icon="mdi:weather-windy"></ha-icon>${P.esc(P.fmtNumber(windRaw, 0))}${windUnit ? ` ${P.esc(windUnit)}` : ''}${dir ? ` ${dir}` : ''}</span>`);
       }
-      if (c.show_pressure !== false && a.pressure != null) {
-        const pu = a.pressure_unit || 'hPa';
-        chips.push(`<span class="chip"><ha-icon icon="mdi:gauge"></ha-icon>${P.esc(P.fmtNumber(parseFloat(a.pressure), 0))} ${P.esc(pu)}</span>`);
+      if (c.show_pressure !== false && !isNaN(presRaw)) {
+        chips.push(`<span class="chip"><ha-icon icon="mdi:gauge"></ha-icon>${P.esc(P.fmtNumber(presRaw, 0))} ${P.esc(presUnit)}</span>`);
       }
 
       this.shadowRoot.innerHTML = `

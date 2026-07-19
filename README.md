@@ -137,6 +137,12 @@ type: custom:prism-weather-card
 entity: weather.home
 title: Weather
 accent: blue
+# Mix in local sensors (e.g. Ecowitt) — condition + H/L stay from the service:
+#   temperature_entity: sensor.gw2000_outdoor_temperature
+#   humidity_entity: sensor.gw2000_humidity
+#   wind_speed_entity: sensor.gw2000_wind_speed
+#   wind_bearing_entity: sensor.gw2000_wind_direction
+#   pressure_entity: sensor.gw2000_relative_pressure
 ```
 
 ```yaml

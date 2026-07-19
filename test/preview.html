@@ -108,6 +108,10 @@
         'weather.home':          { state: 'partlycloudy', attributes: { friendly_name: 'Home', temperature: 18, apparent_temperature: 16, temperature_unit: '°C', humidity: 62, pressure: 1013, pressure_unit: 'hPa', wind_speed: 24, wind_bearing: 315, wind_gust_speed: 41, wind_speed_unit: 'km/h' } },
         'sun.sun':               { state: 'above_horizon', attributes: { friendly_name: 'Sun', next_rising: (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(6, 12, 0, 0); return d.toISOString(); })(), next_setting: (() => { const d = new Date(); d.setHours(20, 24, 0, 0); return d.toISOString(); })(), elevation: 38, azimuth: 232 } },
         'sensor.uv_index':       { state: '7', attributes: { friendly_name: 'UV Index' } },
+        'sensor.eco_temp':       { state: '19.4', attributes: { friendly_name: 'Outdoor Temp', unit_of_measurement: '°C', device_class: 'temperature' } },
+        'sensor.eco_hum':        { state: '58', attributes: { friendly_name: 'Outdoor Humidity', unit_of_measurement: '%', device_class: 'humidity' } },
+        'sensor.eco_wind':       { state: '11.7', attributes: { friendly_name: 'Wind Speed', unit_of_measurement: 'mph' } },
+        'sensor.eco_dir':        { state: '270', attributes: { friendly_name: 'Wind Direction', unit_of_measurement: '°' } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -197,6 +201,7 @@
       { type: 'prism-media-card', cfg: { entity: 'media_player.speaker', title: 'Now Playing' }, wide: true },
       { type: 'prism-wind-card', cfg: { entity: 'weather.home', title: 'Wind', accent: 'teal' } },
       { type: 'prism-weather-card', cfg: { entity: 'weather.home', title: 'Weather', accent: 'blue' } },
+      { type: 'prism-weather-card', cfg: { entity: 'weather.home', title: 'Weather (local sensors)', accent: 'blue', temperature_entity: 'sensor.eco_temp', humidity_entity: 'sensor.eco_hum', wind_speed_entity: 'sensor.eco_wind', wind_bearing_entity: 'sensor.eco_dir' } },
       { type: 'prism-forecast-card', cfg: { entity: 'weather.home', title: 'Forecast', forecast_type: 'daily', count: 7, accent: 'blue' }, wide: true },
       { type: 'prism-sun-card', cfg: { entity: 'sun.sun', title: 'Sun', accent: 'amber' } },
       { type: 'prism-uv-card', cfg: { entity: 'sensor.uv_index', title: 'UV Index' } },

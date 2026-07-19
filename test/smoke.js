@@ -64,6 +64,10 @@ const hass = {
     'sensor.wind_dir': { state: 'NW', attributes: { friendly_name: 'Wind Dir' } },
     'sun.sun': { state: 'above_horizon', attributes: { friendly_name: 'Sun', next_rising: new Date(now + 20 * 3600000).toISOString(), next_setting: new Date(now + 6 * 3600000).toISOString(), elevation: 34, azimuth: 210 } },
     'sensor.uv_index': { state: '6.2', attributes: { friendly_name: 'UV Index' } },
+    'sensor.eco_temp': { state: '19.4', attributes: { friendly_name: 'Outdoor Temp', unit_of_measurement: '°C' } },
+    'sensor.eco_hum': { state: '58', attributes: { friendly_name: 'Outdoor Humidity', unit_of_measurement: '%' } },
+    'sensor.eco_wind': { state: '11.7', attributes: { friendly_name: 'Wind', unit_of_measurement: 'mph' } },
+    'sensor.eco_dir': { state: '270', attributes: { friendly_name: 'Wind Dir', unit_of_measurement: '°' } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -138,6 +142,7 @@ check('parses compact history', async () => {});
     ['prism-wind-card', { entity: 'sensor.x', unit: 'm/s', direction_entity: 'sensor.wind_dir', gust_entity: 'sensor.x', animate: false }],
     ['prism-weather-card', { entity: 'weather.x', title: 'Weather' }],
     ['prism-weather-card', { entity: 'weather.x', show_pressure: false, animate: false }],
+    ['prism-weather-card', { entity: 'weather.x', temperature_entity: 'sensor.eco_temp', humidity_entity: 'sensor.eco_hum', wind_speed_entity: 'sensor.eco_wind', wind_bearing_entity: 'sensor.eco_dir' }],
     ['prism-forecast-card', { entity: 'weather.x', forecast_type: 'daily', count: 5 }],
     ['prism-forecast-card', { entity: 'weather.x', forecast_type: 'hourly', count: 8, show_precip: false }],
     ['prism-sun-card', { entity: 'sun.sun', title: 'Sun' }],

@@ -120,6 +120,24 @@ permissions*.)
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Weather card: local-sensor overrides (v0.10.0)
+- **User request:** pair a weather service (condition + forecast) with local
+  station sensors (Ecowitt) for the numeric readings.
+- Added optional per-field sensor overrides to `prism-weather-card`:
+  `temperature_entity`, `feels_like_entity`, `humidity_entity`,
+  `wind_speed_entity`, `wind_bearing_entity` (deg or cardinal), `pressure_entity`.
+  Each field prefers its override sensor (value + unit), else the weather
+  entity's attribute; the **condition icon and today's H/L always stay from the
+  weather `entity`**. New helpers `fieldNum`/`fieldUnit`; wind direction handles
+  numeric degrees or a cardinal string. Editor gains a "Local sensor sources"
+  section (6 sensor pickers).
+- Wired smoke (eco_* sensor fixtures + override case) + preview ("Weather (local
+  sensors)" demo with eco_temp/hum/wind/dir). README quick-start comment +
+  docs/cards.md override table + example. VERSION 0.9.1 → 0.10.0.
+- Verified in real Chromium: local card → 19° (eco_temp), "Partly cloudy" (kept
+  from service), chips 58% / 12 mph W / 1,013 hPa (pressure fell back to
+  service). No console errors.
+
 ### 2026-07-18 — Fix forecast card `type` option collision (v0.9.1)
 - **Bug (user-reported):** `prism-forecast-card`'s daily/hourly option was named
   `type`, which collides with Lovelace's reserved card-type key. A config with
