@@ -116,9 +116,32 @@ workflow via *Actions → Release → Run workflow*. (Requires the repo's Action
 token to have write access: Settings → Actions → General → *Read and write
 permissions*.)
 
+## Showcase images
+
+The README showcase (`docs/assets/preview-{light,dark}.png`) is **auto-regenerated**
+by `.github/workflows/showcase.yml`. On any push to `main` touching `src/**`,
+`prism.js`, `test/preview.html`, `test/shot.js`, or `themes/**`, it installs a
+Chromium, runs `bash build.sh` + `node test/shot.js`, and commits the updated
+images back to `main` (only if changed; commit is `[skip ci]` so it never loops
+or re-triggers the release). Also runnable on demand via *Actions → Showcase →
+Run workflow*. So a new card only needs its `test/preview.html` demo entry — the
+showcase updates itself. (Manual local regen still works too; the sandbox needs
+`chromium.launch({ executablePath: '/opt/pw-browsers/chromium-<ver>/chrome-linux/chrome' })`.)
+
 ## Session log
 
 Newest first. One short entry per working session: what shipped + open threads.
+
+### 2026-07-18 — Auto-regenerated showcase images
+- Regenerated `docs/assets/preview-{light,dark}.png` to include the UV + rain
+  cards (full weather set now in the showcase).
+- **Automated it:** added `.github/workflows/showcase.yml` — on push to `main`
+  touching src/prism.js/preview/shot/themes (or manual dispatch), it installs
+  Chromium, runs `build.sh` + `test/shot.js`, and commits the refreshed images
+  back to main if they changed (`[skip ci]` avoids loops / release re-trigger).
+  Bumped `test/shot.js` settle waits (600→1000, 400→600) so async weather/
+  forecast cards populate in CI. No VERSION bump (CI infra only).
+- Adding a card now just needs its preview.html demo; the showcase self-updates.
 
 ### 2026-07-18 — Rain card: animated gauge (v0.11.0)
 - **User request:** a rain card with a "cool animated gauge" showing rainfall
