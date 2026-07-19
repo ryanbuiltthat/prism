@@ -1,0 +1,66 @@
+name: Showcase
+
+# Keeps the README showcase images (docs/assets/preview-{light,dark}.png) in
+# sync with the cards. On any push to main that touches the cards, the bundle,
+# or the preview, it rebuilds, renders test/preview.html in a real Chromium via
+# test/shot.js, and commits the regenerated images back to main (only if they
+# changed). Also runnable on demand from the Actions tab.
+#
+# The commit touches only docs/assets (outside this workflow's path filter) and
+# carries [skip ci], so it never re-triggers itself or the release workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'prism.js'
+      - 'test/preview.html'
+      - 'test/shot.js'
+      - 'themes/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: showcase
+  cancel-in-progress: false
+
+jobs:
+  showcase:
+    name: Regenerate showcase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build bundle
+        run: bash build.sh
+
+      - name: Render showcase
+        run: node test/shot.js
+
+      - name: Commit updated images
+        run: |
+          if [ -n "$(git status --porcelain docs/assets/preview-light.png docs/assets/preview-dark.png)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/assets/preview-light.png docs/assets/preview-dark.png
+            git commit -m "Regenerate showcase images [skip ci]"
+            git push
+            echo "Showcase images updated."
+          else
+            echo "Showcase already up to date."
+          fi

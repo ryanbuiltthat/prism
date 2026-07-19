@@ -15,14 +15,14 @@ const { chromium } = require('playwright');
   const assets = path.join(__dirname, '..', 'docs', 'assets');
 
   await page.goto(url);
-  await page.waitForTimeout(600); // let history promises + render settle
+  await page.waitForTimeout(1000); // let history + forecast promises + render settle
   const cards = await page.locator('prism-power-card').count();
   await page.screenshot({ path: path.join(__dirname, 'shot-light.png'), fullPage: true });
   // Committed showcase: just the card grid (no test-harness chrome).
   await page.locator('#grid').screenshot({ path: path.join(assets, 'preview-light.png') });
 
   await page.click('#theme');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(__dirname, 'shot-dark.png'), fullPage: true });
   await page.locator('#grid').screenshot({ path: path.join(assets, 'preview-dark.png') });
 
