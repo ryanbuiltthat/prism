@@ -132,6 +132,24 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Forecast NWS: explicit Home/Custom location (v0.16.2) + animated-icon alignment fix (v0.16.1)
+- **v0.16.1:** user reported the forecast icons are misaligned **when animated**.
+  Root cause in the shared flat `weatherIcon`: the cloud `<g>` carried BOTH its
+  positioning (`transform="translate/scale"` presentation attribute) AND the
+  drift animation (a CSS `transform` keyframe). A CSS `transform` animation fully
+  overrides the presentation-attribute transform, so animated clouds snapped to
+  the viewBox origin (sun icons were fine — absolute coords, no positioning
+  transform). Fixed by splitting: positioning on an outer `<g>`, drift animation
+  on an inner `<g>`. Static render unchanged.
+- **v0.16.2:** user said the NWS location inputs were "missing" and asked to keep
+  the home-location option but add a custom one. Replaced the optional
+  "leave-blank-for-home" lat/lon fields with an explicit **Location** select
+  (`home` default | `custom`); lat/lon inputs only show when `custom`. Card now
+  gates custom coords on `c.location === 'custom'` (else always HA location).
+  Updated README/docs (location row + custom example) + smoke case.
+- Both verified via `bash build.sh` + `node test/smoke.js` green. (In-browser
+  visual check still not possible — sandbox Chromium has no outbound network.)
+
 ### 2026-07-21 — Forecast card: US National Weather Service source (v0.16.0)
 - **User request:** get the forecast from the US National Weather Service API
   (api.weather.gov) instead of tomorrow.io; add editor options for the variables.

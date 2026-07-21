@@ -166,13 +166,16 @@ accent: blue
 
 ```yaml
 # Forecast from the free US National Weather Service API (no API key, US only).
-# Leave latitude/longitude out to use your Home Assistant location.
+# Uses your Home Assistant location; set location: custom for your own lat/lon.
 type: custom:prism-forecast-card
 source: nws
 title: Forecast
 forecast_type: daily   # or: hourly
 count: 7
 units: us              # °F/mph, or: si for °C/km·h
+# location: custom     # then set latitude / longitude
+# latitude: 40.7128
+# longitude: -74.006
 accent: blue
 ```
 

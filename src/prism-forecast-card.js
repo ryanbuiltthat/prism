@@ -109,9 +109,19 @@
 
       if (source === 'nws') {
         stack.append(
-          this._hint('The National Weather Service API is free and needs no API key. Leave latitude/longitude blank to use your Home Assistant location. US locations only.'),
-          this._tf('Latitude (optional)', c.latitude, (v) => this._patch('latitude', v), { type: 'number' }),
-          this._tf('Longitude (optional)', c.longitude, (v) => this._patch('longitude', v), { type: 'number' }),
+          this._hint('The National Weather Service API is free and needs no API key. US locations only.'),
+          this._select('Location', [
+            { value: 'home', label: 'Home Assistant location' },
+            { value: 'custom', label: 'Custom coordinates' },
+          ], c.location || 'home', (v) => { this._patch('location', v); this._rerender(); })
+        );
+        if ((c.location || 'home') === 'custom') {
+          stack.append(
+            this._tf('Latitude', c.latitude, (v) => this._patch('latitude', v), { type: 'number' }),
+            this._tf('Longitude', c.longitude, (v) => this._patch('longitude', v), { type: 'number' })
+          );
+        }
+        stack.append(
           this._select('Units', [
             { value: 'us', label: '°F, mph (US)' },
             { value: 'si', label: '°C, km/h (metric)' },
@@ -182,8 +192,13 @@
 
       if ((c.source || 'entity') === 'nws') {
         const cfg = this._hass.config || {};
-        const lat = c.latitude != null && c.latitude !== '' ? Number(c.latitude) : cfg.latitude;
-        const lon = c.longitude != null && c.longitude !== '' ? Number(c.longitude) : cfg.longitude;
+        // Default to the Home Assistant location; only use custom coordinates
+        // when the location mode is explicitly `custom`.
+        let lat = cfg.latitude, lon = cfg.longitude;
+        if (c.location === 'custom') {
+          if (c.latitude != null && c.latitude !== '') lat = Number(c.latitude);
+          if (c.longitude != null && c.longitude !== '') lon = Number(c.longitude);
+        }
         if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return;
         const units = c.units || 'us';
         const key = `nws|${lat}|${lon}|${type}|${units}`;
