@@ -53,11 +53,13 @@
       this.attachShadow({ mode: 'open' });
       this._config = null;
       this._hass = null;
+      this._sig = null;
     }
 
     setConfig(config) {
       if (!config.event_entity) throw new Error('prism-rain-card: `event_entity` is required.');
       this._config = { animate: true, accent: 'blue', ...config };
+      this._sig = null; // force a rebuild on the next render
       if (this._hass) this._render();
     }
 
@@ -131,6 +133,13 @@
       const intLine = isNaN(intensity)
         ? `<span class="rate l${rate.level}">${rate.label}</span>`
         : `${P.esc(fmtRain(intensity, iUnit))} ${P.esc(iUnit)} · <span class="rate l${rate.level}">${rate.label}</span>`;
+
+      // Home Assistant pushes `hass` on every state change. Rebuild only when a
+      // displayed value changes, so the falling-drop / wave CSS animations
+      // aren't restarted from scratch on every unrelated tick.
+      const sig = JSON.stringify([frac, event, intensity, periodChips, intLine, name]);
+      if (sig === this._sig) return;
+      this._sig = sig;
 
       this.shadowRoot.innerHTML = `
         <style>

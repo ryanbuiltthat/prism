@@ -122,6 +122,7 @@
       this.attachShadow({ mode: 'open' });
       this._config = null;
       this._hass = null;
+      this._sig = null;
     }
 
     setConfig(config) {
@@ -129,6 +130,7 @@
         throw new Error('prism-wind-card: set `entity` (a weather or wind-speed entity) or `speed_entity`.');
       }
       this._config = { show_gust: true, animate: true, ...config };
+      this._sig = null; // force a rebuild on the next render
       if (this._hass) this._render();
     }
 
@@ -162,6 +164,14 @@
       const bf = beaufort(toKmh(hasSpeed ? speed : 0, unit || 'km/h'));
       const cardinal = hasDir ? cardinalOf(bearing) : '';
       const name = c.name || (this._hass.states[c.entity] ? this._hass.states[c.entity].attributes.friendly_name : (c.entity || c.speed_entity));
+
+      // Home Assistant pushes `hass` on every state change, so _render runs
+      // constantly. Only rebuild the DOM when a displayed value actually
+      // changes — otherwise the recreated streak spans restart their CSS sweep
+      // animation on every tick (a "bouncing line" across the rose).
+      const sig = JSON.stringify([speed, bearing, gust, unit, name]);
+      if (sig === this._sig) return;
+      this._sig = sig;
 
       // Compass geometry.
       const W = 120, cx = 60, cy = 60, R = 52;

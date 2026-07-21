@@ -132,6 +132,26 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Animated cards: render-guard fix for restart "bouncing" (v0.16.3)
+- **User:** the wind card animation is broken — "a bouncing line right in the
+  wind rose." Root cause: HA pushes `hass` to every card on **every** state
+  change, and these cards rebuild their whole `innerHTML` in `set hass` →
+  `_render()`. Recreating the DOM restarts every CSS animation from frame 0, so
+  the wind streak's multi-second sweep snapped back to its start on each tick =
+  a line bouncing across the compass. Same latent bug in **rain** (falling
+  drops / wave) and **lux** (26s ray-spin / disc-pulse), which also animate
+  continuously — fixed all three.
+- Fix: a **render guard**. Each card computes a `sig` (JSON of the displayed
+  values — wind: speed/bearing/gust/unit/name; rain: frac/event/intensity/
+  periodChips/intLine/name; lux: value/night/band/name/unit) and early-returns
+  from `_render` when it's unchanged, so the DOM (and its animations) persist
+  across unrelated ticks. `setConfig` resets `this._sig = null` to force a
+  rebuild on config change. Constructor seeds `this._sig = null`.
+- Verified: `bash build.sh` + `node test/smoke.js` green; a Node harness test
+  confirmed an identical `hass` push skips the rebuild while a changed wind
+  value still re-renders. VERSION 0.16.2 → 0.16.3. (In-browser visual check
+  still blocked — sandbox Chromium has no outbound network.)
+
 ### 2026-07-21 — Forecast NWS: explicit Home/Custom location (v0.16.2) + animated-icon alignment fix (v0.16.1)
 - **v0.16.1:** user reported the forecast icons are misaligned **when animated**.
   Root cause in the shared flat `weatherIcon`: the cloud `<g>` carried BOTH its
