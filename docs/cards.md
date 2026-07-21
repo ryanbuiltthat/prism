@@ -493,8 +493,9 @@ Two forecast **sources**:
 |-----|------|---------|-------|
 | `source` | string | `entity` | `entity` (a `weather.*` entity) or `nws` (US National Weather Service). |
 | `entity` | string | — | **Required when `source: entity`.** A `weather.*` entity. |
-| `latitude` | number | HA location | *(nws)* Override latitude. Blank → your Home Assistant `latitude`. |
-| `longitude` | number | HA location | *(nws)* Override longitude. Blank → your Home Assistant `longitude`. |
+| `location` | string | `home` | *(nws)* `home` (use your Home Assistant location) or `custom` (enter coordinates below). |
+| `latitude` | number | — | *(nws, `location: custom`)* Latitude. |
+| `longitude` | number | — | *(nws, `location: custom`)* Longitude. |
 | `units` | string | `us` | *(nws)* `us` (°F, mph) or `si` (°C, km/h). |
 | `forecast_type` | string | `daily` | `daily` or `hourly`. (Named `forecast_type`, not `type`, because `type` is Lovelace's reserved card-type key.) |
 | `count` | number | `5` | Number of columns shown. |
@@ -517,7 +518,7 @@ accent: blue
 
 ```yaml
 # US National Weather Service source — free, no API key, US only.
-# Leave latitude/longitude out to use your Home Assistant location.
+# Uses your Home Assistant location by default.
 type: custom:prism-forecast-card
 source: nws
 title: Forecast
@@ -525,6 +526,16 @@ forecast_type: daily
 count: 7
 units: us              # or: si
 accent: blue
+```
+
+```yaml
+# NWS with custom coordinates instead of the Home Assistant location.
+type: custom:prism-forecast-card
+source: nws
+location: custom
+latitude: 40.7128
+longitude: -74.006
+units: us
 ```
 
 ---
