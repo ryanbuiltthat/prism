@@ -50,11 +50,13 @@
       this.attachShadow({ mode: 'open' });
       this._config = null;
       this._hass = null;
+      this._sig = null;
     }
 
     setConfig(config) {
       if (!config.entity) throw new Error('prism-lux-card: `entity` is required.');
       this._config = { animate: true, ...config };
+      this._sig = null; // force a rebuild on the next render
       if (this._hass) this._render();
     }
 
@@ -94,6 +96,13 @@
       const name = c.name || (st ? st.attributes.friendly_name : c.entity);
       const value = has ? P.fmtNumber(Math.round(lux), 0) : '—';
       const unit = (st && st.attributes.unit_of_measurement) || 'lx';
+
+      // Home Assistant pushes `hass` on every state change. Rebuild only when
+      // the reading changes, so the ray-spin / disc-pulse CSS animations aren't
+      // restarted from scratch on every unrelated tick.
+      const sig = JSON.stringify([value, night, band.label, name, unit]);
+      if (sig === this._sig) return;
+      this._sig = sig;
 
       // Sun geometry (viewBox 96). Disc + 12 rays scale with the light level.
       const CX = 48, CY = 48;
