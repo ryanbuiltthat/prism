@@ -132,6 +132,28 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Editor text fields: drop `ha-textfield` for native `<input>` (v0.16.4)
+- **User (screenshots):** couldn't change the power card title — the visual
+  editor was **missing every text field** (Title, Name, Icon, Unit, Decimals,
+  Bar max, Energy label, History window). What still rendered: entity pickers,
+  the accent + mode dropdowns, and the switches.
+- **Root cause:** the shared `_tf()` helper built fields with `ha-textfield`.
+  That HA element isn't guaranteed to be registered in every frontend build; in
+  this user's HA it was **undefined**, so each field rendered as an empty
+  invisible custom element → silently dropped. The surviving controls use
+  `ha-entity-picker` / native `<select>` / `ha-switch`, which were loaded. (My
+  earlier sandbox checks passed only because I *stubbed* `ha-textfield`.)
+- **Fix:** rewrote `_tf()` to use a native `<input class="tf">` inside a
+  `.field` wrapper (label + input), matching the native `<select class="sel">`
+  already used for dropdowns. Kept the same API (`type`, `suffix`), added `.tf`
+  / `.tf-row` / `.tf-suffix` styles, and dropped the obsolete `ha-textfield`
+  style rule. Fixes invisible text fields across **all 22 card editors**, not
+  just power.
+- Verified in real Chromium **without** defining `ha-textfield` (reproducing the
+  user's env): all 8 power-card text fields now render (41px, visible), and
+  typing into Title fires `config-changed` with the new title. `bash build.sh` +
+  `node test/smoke.js` green. VERSION 0.16.3 → 0.16.4.
+
 ### 2026-07-21 — Animated cards: render-guard fix for restart "bouncing" (v0.16.3)
 - **User:** the wind card animation is broken — "a bouncing line right in the
   wind rose." Root cause: HA pushes `hass` to every card on **every** state
