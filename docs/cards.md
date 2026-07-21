@@ -482,26 +482,48 @@ pressure_entity: sensor.gw2000_relative_pressure
 
 ## `custom:prism-forecast-card`
 
-Flat **forecast strip** — one column per period: a day/hour label ("Today"/"Now" for the first), a flat condition icon, **high/low** temps, and an optional **precipitation-chance** chip. Reads a `weather.*` entity's forecast via `weather.get_forecasts`.
+Flat **forecast strip** — one column per period: a day/hour label ("Today"/"Now" for the first), a flat condition icon, **high/low** temps, and an optional **precipitation-chance** chip.
+
+Two forecast **sources**:
+
+- `entity` (default) — a `weather.*` entity's forecast via `weather.get_forecasts`.
+- `nws` — the **US National Weather Service** API ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)). It's **free and needs no API key**, but only covers **US locations**. The card looks up your coordinates via `/points/{lat},{lon}` and reads the gridpoint forecast; results are cached and refreshed every 15 minutes.
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
-| `entity` | string | — | **Required.** A `weather.*` entity. |
+| `source` | string | `entity` | `entity` (a `weather.*` entity) or `nws` (US National Weather Service). |
+| `entity` | string | — | **Required when `source: entity`.** A `weather.*` entity. |
+| `latitude` | number | HA location | *(nws)* Override latitude. Blank → your Home Assistant `latitude`. |
+| `longitude` | number | HA location | *(nws)* Override longitude. Blank → your Home Assistant `longitude`. |
+| `units` | string | `us` | *(nws)* `us` (°F, mph) or `si` (°C, km/h). |
 | `forecast_type` | string | `daily` | `daily` or `hourly`. (Named `forecast_type`, not `type`, because `type` is Lovelace's reserved card-type key.) |
 | `count` | number | `5` | Number of columns shown. |
-| `show_precip` | bool | `true` | Show the precipitation-chance chip (`precipitation_probability`). |
+| `show_precip` | bool | `true` | Show the precipitation-chance chip. |
 | `animate` | bool | `false` | Animate the (small) condition icons. |
 | `title` | string | — | Card header. |
 | `accent` | string | `theme` | Colours the precipitation chip. |
 
-Daily periods show `temperature` (high) over `templow` (low); hourly periods show the single `temperature`. Overflow scrolls horizontally. Tap opens more-info.
+Daily periods show `temperature` (high) over `templow` (low); hourly periods show the single `temperature`. Overflow scrolls horizontally. Tapping opens more-info (weather-entity source only). For the NWS source, its plain-language `shortForecast` text is mapped onto the shared flat icon set.
 
 ```yaml
+# Weather-entity source (default)
 type: custom:prism-forecast-card
 entity: weather.home
 title: Forecast
 forecast_type: daily   # or: hourly
 count: 7
+accent: blue
+```
+
+```yaml
+# US National Weather Service source — free, no API key, US only.
+# Leave latitude/longitude out to use your Home Assistant location.
+type: custom:prism-forecast-card
+source: nws
+title: Forecast
+forecast_type: daily
+count: 7
+units: us              # or: si
 accent: blue
 ```
 

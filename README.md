@@ -46,7 +46,7 @@ Prism is two things working together:
 | **Media** | `custom:prism-media-card` | Media-player tile: album art, what's playing, transport controls, and a volume slider. |
 | **Wind** | `custom:prism-wind-card` | Wind tile: dominant speed, a flat compass rose with an accent direction arrow, Beaufort descriptor, gusts, and animated flat wind-streak accents that intensify with the wind. Reads a `weather.*` entity or individual sensors. |
 | **Weather** | `custom:prism-weather-card` | Current-conditions tile: big temperature, a flat animated condition icon, feels-like + today's high/low, and humidity / wind / pressure chips. Reads a `weather.*` entity. |
-| **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity's forecast. |
+| **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity **or** the free US National Weather Service API (weather.gov). |
 | **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc (a moon below the horizon at night), the traveled portion filled with the accent, and a live "sets in / rises in" countdown. Reads `sun.sun`. |
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
@@ -161,6 +161,18 @@ entity: weather.home
 title: Forecast
 forecast_type: daily   # or: hourly
 count: 7               # number of columns
+accent: blue
+```
+
+```yaml
+# Forecast from the free US National Weather Service API (no API key, US only).
+# Leave latitude/longitude out to use your Home Assistant location.
+type: custom:prism-forecast-card
+source: nws
+title: Forecast
+forecast_type: daily   # or: hourly
+count: 7
+units: us              # °F/mph, or: si for °C/km·h
 accent: blue
 ```
 
