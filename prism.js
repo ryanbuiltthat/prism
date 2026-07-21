@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.15.1';
+  const VERSION = '0.16.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -4421,8 +4421,12 @@
  * prism-forecast-card
  * Flat multi-day (or hourly) forecast strip: one column per period — a day/
  * hour label, a flat condition icon (shared Prism weather set), high/low temps,
- * and an optional precipitation-chance chip. Reads a `weather.*` entity's
- * forecast via the get_forecasts service.
+ * and an optional precipitation-chance chip.
+ *
+ * Two forecast sources:
+ *   - `entity` (default): a `weather.*` entity's forecast (get_forecasts service).
+ *   - `nws`: the US National Weather Service API (api.weather.gov) — free, no API
+ *     key, US only. Uses your Home Assistant lat/lon (or an override).
  *
  * type: custom:prism-forecast-card
  */
@@ -4445,13 +4449,100 @@
     return d.toLocaleDateString(undefined, { weekday: 'short' });
   }
 
+  // ── NWS (api.weather.gov) helpers ─────────────────────────────────
+  // Map an NWS `shortForecast` text (+ day/night) onto an HA condition key
+  // that the shared flat icon set understands. Keyword-matched, specific first.
+  function nwsCondition(text, isDay) {
+    const s = String(text || '').toLowerCase();
+    const has = (re) => re.test(s);
+    const clear = isDay ? 'sunny' : 'clear-night';
+    if (has(/thunder|t-?storm|tstm/)) return has(/rain|shower/) ? 'lightning-rainy' : 'lightning';
+    if (has(/sleet|freezing|wintry mix|ice/)) return 'snowy-rainy';
+    if (has(/hail/)) return 'hail';
+    if (has(/snow|flurr|blizzard/)) return has(/rain/) ? 'snowy-rainy' : 'snowy';
+    if (has(/heavy rain|downpour|torrential/)) return 'pouring';
+    if (has(/rain|shower|drizzle|precip/)) return 'rainy';
+    if (has(/fog|haze|mist|smoke|dust/)) return 'fog';
+    if (has(/wind|breez|blustery/)) return 'windy';
+    if (has(/partly|mostly (sunny|clear)/)) return 'partlycloudy';
+    if (has(/cloud|overcast/)) return 'cloudy';
+    if (has(/sunny|clear|fair/)) return clear;
+    return 'cloudy';
+  }
+
+  const precipOf = (p) => (p && p.probabilityOfPrecipitation ? p.probabilityOfPrecipitation.value : null);
+
+  // NWS daily forecast = alternating 12-hour day/night periods. Pair each
+  // daytime period (high) with the following night period (low) into one column.
+  function mapNwsDaily(periods) {
+    const out = [];
+    for (let i = 0; i < periods.length; i++) {
+      const p = periods[i];
+      const next = periods[i + 1];
+      if (p.isDaytime && next && !next.isDaytime) {
+        out.push({
+          datetime: p.startTime,
+          condition: nwsCondition(p.shortForecast, true),
+          temperature: p.temperature,
+          templow: next.temperature,
+          precipitation_probability: precipOf(p),
+        });
+        i++; // consume the paired night period
+      } else {
+        // A lone daytime or a leading night period → single temperature column.
+        out.push({
+          datetime: p.startTime,
+          condition: nwsCondition(p.shortForecast, p.isDaytime),
+          temperature: p.temperature,
+          templow: undefined,
+          precipitation_probability: precipOf(p),
+        });
+      }
+    }
+    return out;
+  }
+
+  // NWS hourly forecast = 1-hour periods with a single temperature each.
+  function mapNwsHourly(periods) {
+    return periods.map((p) => ({
+      datetime: p.startTime,
+      condition: nwsCondition(p.shortForecast, p.isDaytime),
+      temperature: p.temperature,
+      templow: undefined,
+      precipitation_probability: precipOf(p),
+    }));
+  }
+
   // ── Editor ────────────────────────────────────────────────────────
   class PrismForecastCardEditor extends P.PrismEditor {
     _fields(stack) {
       const c = this._config;
+      const source = c.source || 'entity';
       stack.append(
         this._titleField(),
-        this._picker('Weather entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['weather'] }),
+        this._select('Source', [
+          { value: 'entity', label: 'Weather entity' },
+          { value: 'nws', label: 'US National Weather Service (weather.gov)' },
+        ], source, (v) => { this._patch('source', v); this._rerender(); })
+      );
+
+      if (source === 'nws') {
+        stack.append(
+          this._hint('The National Weather Service API is free and needs no API key. Leave latitude/longitude blank to use your Home Assistant location. US locations only.'),
+          this._tf('Latitude (optional)', c.latitude, (v) => this._patch('latitude', v), { type: 'number' }),
+          this._tf('Longitude (optional)', c.longitude, (v) => this._patch('longitude', v), { type: 'number' }),
+          this._select('Units', [
+            { value: 'us', label: '°F, mph (US)' },
+            { value: 'si', label: '°C, km/h (metric)' },
+          ], c.units || 'us', (v) => this._patch('units', v))
+        );
+      } else {
+        stack.append(
+          this._picker('Weather entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['weather'] })
+        );
+      }
+
+      stack.append(
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._select('Forecast', [
           { value: 'daily', label: 'Daily' },
@@ -4475,14 +4566,20 @@
       this._forecast = [];
       this._fcKey = null;
       this._fcAt = 0;
+      this._pointsKey = null;   // cached api.weather.gov /points lookup
+      this._pointsData = null;
     }
 
     setConfig(config) {
-      if (!config.entity) throw new Error('prism-forecast-card: `entity` (a weather.* entity) is required.');
+      const source = config.source || 'entity';
+      if (source === 'entity' && !config.entity) {
+        throw new Error('prism-forecast-card: `entity` (a weather.* entity) is required for the weather-entity source.');
+      }
       // Note: `type` is Lovelace's reserved card-type key, so the daily/hourly
       // option is `forecast_type` (matching HA's core weather-forecast card).
-      this._config = { forecast_type: 'daily', count: 5, animate: false, show_precip: true, ...config };
-      if (this._hass) this._render();
+      this._config = { source: 'entity', forecast_type: 'daily', count: 5, animate: false, show_precip: true, ...config };
+      this._fcKey = null; // force a refetch on the next hass tick
+      if (this._hass) { this._maybeForecast(); this._render(); }
     }
 
     set hass(hass) { this._hass = hass; this._maybeForecast(); this._render(); }
@@ -4498,18 +4595,66 @@
 
     _maybeForecast() {
       const c = this._config;
-      if (!c || !c.entity || !this._hass) return;
-      const key = `${c.entity}|${c.forecast_type || 'daily'}`;
+      if (!c || !this._hass) return;
+      const type = c.forecast_type || 'daily';
       const now = Date.now();
+
+      if ((c.source || 'entity') === 'nws') {
+        const cfg = this._hass.config || {};
+        const lat = c.latitude != null && c.latitude !== '' ? Number(c.latitude) : cfg.latitude;
+        const lon = c.longitude != null && c.longitude !== '' ? Number(c.longitude) : cfg.longitude;
+        if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return;
+        const units = c.units || 'us';
+        const key = `nws|${lat}|${lon}|${type}|${units}`;
+        if (this._fcKey === key && this._fcAt && now - this._fcAt < 15 * 60 * 1000) return;
+        this._fcKey = key; this._fcAt = now;
+        this._fetchNws(lat, lon, type, units).then((f) => {
+          this._forecast = Array.isArray(f) ? f : [];
+          this._render();
+        });
+        return;
+      }
+
+      if (!c.entity) return;
+      const key = `entity|${c.entity}|${type}`;
       if (this._fcKey === key && this._fcAt && now - this._fcAt < 15 * 60 * 1000) return;
       this._fcKey = key; this._fcAt = now;
-      P.fetchForecast(this._hass, c.entity, c.forecast_type || 'daily').then((f) => {
+      P.fetchForecast(this._hass, c.entity, type).then((f) => {
         this._forecast = Array.isArray(f) ? f : [];
         this._render();
       });
     }
 
+    // Fetch a forecast from api.weather.gov: /points/{lat},{lon} → the grid
+    // forecast (or forecastHourly) URL. Keyless + CORS-open. Never throws.
+    async _fetchNws(lat, lon, type, units) {
+      if (typeof fetch === 'undefined') return [];
+      const headers = { Accept: 'application/geo+json' };
+      const key = `${lat},${lon}`;
+      try {
+        if (this._pointsKey !== key || !this._pointsData) {
+          const pr = await fetch(`https://api.weather.gov/points/${key}`, { headers });
+          if (!pr.ok) return [];
+          const pj = await pr.json();
+          this._pointsKey = key;
+          this._pointsData = (pj && pj.properties) || null;
+        }
+        const base = type === 'hourly' ? (this._pointsData && this._pointsData.forecastHourly)
+                                       : (this._pointsData && this._pointsData.forecast);
+        if (!base) return [];
+        const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + `units=${units || 'us'}`;
+        const fr = await fetch(url, { headers });
+        if (!fr.ok) return [];
+        const fj = await fr.json();
+        const periods = (fj && fj.properties && fj.properties.periods) || [];
+        return type === 'hourly' ? mapNwsHourly(periods) : mapNwsDaily(periods);
+      } catch (e) {
+        return [];
+      }
+    }
+
     _moreInfo() {
+      if (!this._config || !this._config.entity) return;
       this.dispatchEvent(new CustomEvent('hass-more-info', {
         detail: { entityId: this._config.entity }, bubbles: true, composed: true,
       }));
@@ -4540,6 +4685,9 @@
       }).join('');
 
       const empty = !items.length;
+      const emptyText = (c.source || 'entity') === 'nws'
+        ? 'Forecast unavailable (US locations only)'
+        : 'Forecast unavailable';
 
       this.shadowRoot.innerHTML = `
         <style>
@@ -4560,7 +4708,7 @@
         </style>
         <div class="prism-card" role="button" tabindex="0" aria-label="Forecast">
           ${P.titleHead(c.title)}
-          ${empty ? `<div class="empty">Forecast unavailable</div>` : `<div class="strip">${cols}</div>`}
+          ${empty ? `<div class="empty">${P.esc(emptyText)}</div>` : `<div class="strip">${cols}</div>`}
         </div>`;
 
       P.bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._moreInfo(), () => this._moreInfo());
@@ -4571,7 +4719,7 @@
   P.registerCard({
     type: 'prism-forecast-card',
     name: 'Prism Forecast Card',
-    description: 'Flat daily/hourly forecast strip: condition icons, high/low temps, and precipitation chance.',
+    description: 'Flat daily/hourly forecast strip (weather entity or the free US National Weather Service API).',
   });
 })();
 

@@ -132,6 +132,42 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Forecast card: US National Weather Service source (v0.16.0)
+- **User request:** get the forecast from the US National Weather Service API
+  (api.weather.gov) instead of tomorrow.io; add editor options for the variables.
+  NWS is **keyless** (no API key exists), so the "variables" are **location**
+  (lat/lon) + **units** — clarified this and added those instead of an API-key
+  field.
+- **`prism-forecast-card`** now has a `source` option: `entity` (default,
+  unchanged — a `weather.*` entity via `get_forecasts`) or `nws`. The NWS path
+  (`_fetchNws`) does `/points/{lat},{lon}` → the gridpoint `forecast` /
+  `forecastHourly` URL (`?units=us|si`), caches the points lookup, and maps the
+  12-hour day/night periods into the card's internal item shape:
+  - `mapNwsDaily` pairs each daytime period (high) with the following night
+    period (low); a leading/lone night → a single-temp column.
+  - `mapNwsHourly` → one column per 1-hour period.
+  - `nwsCondition(shortForecast, isDaytime)` keyword-maps NWS plain-language text
+    (e.g. "Showers And Thunderstorms" → `lightning-rainy`, "Mostly Cloudy" →
+    `cloudy`, "Partly Sunny" → `partlycloudy`) onto the shared flat icon keys.
+  - lat/lon default to `hass.config.latitude/longitude`; 15-min throttle keyed by
+    source+lat+lon+type+units; `typeof fetch` guard; `_moreInfo` no-ops for nws
+    (no HA entity). `setConfig` only requires `entity` when `source: entity`.
+- Editor: a **Source** select; when `nws`, shows a "no API key needed / US only"
+  hint + latitude/longitude (optional) + a units select; else the weather-entity
+  picker. `_rerender()` on source change. No preview.html demo (real network /
+  CORS won't resolve under file://), so the showcase is unaffected.
+- Wired build.sh/ps1 already list the file; added 2 smoke cases (`source:'nws'`,
+  render empty via the fetch guard). README table + quick-start; docs/cards.md
+  source table + two examples. VERSION 0.15.1 → 0.16.0.
+- Verified: `bash build.sh` + `node test/smoke.js` green. Confirmed the live API
+  via curl — `/points/40.71,-74.01` → 200, `access-control-allow-origin: *`
+  (CORS open for browsers), keyless; ran `mapNwsDaily`/`nwsCondition` against the
+  **real** NYC payload → correct columns (leading "Tonight" lone-night 72°,
+  Wed 83/66, etc.) + correct keyword mapping. Could **not** do the in-browser
+  live-fetch check — the sandbox headless Chromium has no outbound network
+  ("Failed to fetch"), an environment limit, not a code issue; Node's proxied
+  fetch and the DOM-shim render both pass.
+
 ### 2026-07-18 — Lightning card: use the full-colour thunderstorm glyph (v0.15.1)
 - **User feedback:** the lightning card's icon (old flat `weatherIcon('lightning')`
   — grey cloud with a detached bolt floating below it) looked off. Swapped it to

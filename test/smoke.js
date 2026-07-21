@@ -156,6 +156,8 @@ check('parses compact history', async () => {});
     ['prism-weather-card', { entity: 'weather.x', temperature_entity: 'sensor.eco_temp', humidity_entity: 'sensor.eco_hum', wind_speed_entity: 'sensor.eco_wind', wind_bearing_entity: 'sensor.eco_dir' }],
     ['prism-forecast-card', { entity: 'weather.x', forecast_type: 'daily', count: 5 }],
     ['prism-forecast-card', { entity: 'weather.x', forecast_type: 'hourly', count: 8, show_precip: false }],
+    ['prism-forecast-card', { source: 'nws', forecast_type: 'daily', count: 5, units: 'us' }],
+    ['prism-forecast-card', { source: 'nws', latitude: 40.7128, longitude: -74.006, forecast_type: 'hourly', count: 8 }],
     ['prism-sun-card', { entity: 'sun.sun', title: 'Sun' }],
     ['prism-sun-card', { entity: 'sun.sun', accent: 'orange' }],
     ['prism-uv-card', { entity: 'sensor.uv_index', title: 'UV' }],
