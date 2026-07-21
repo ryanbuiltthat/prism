@@ -132,6 +132,28 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Weather card: currentColor animated icon set (v0.14.0)
+- **User request:** use a supplied set of animated `currentColor` SVGs for the
+  weather (current-conditions) card's hero icon (theme-inheriting), keyed by HA
+  weather state (normalized from Tomorrow.io).
+- Added **`src/prism-weather-anim.js`** — a helper module (augments `PrismUI`,
+  no card) exposing `P.weatherAnim(state, {animated})` + `P.WEATHER_ANIM`. An
+  asset map of 9 inline animated SVGs (viewBox 64, all `currentColor`): the
+  user's `partly-cloudy` + `rainy` verbatim, plus authored clear-day / clear-
+  night / cloudy / pouring / thunderstorm / snowy / fog in the same style. HA
+  state → asset map (incl. lightning-rainy/snowy-rainy/hail/windy/exceptional),
+  cloud fallback. `animated:false` strips the `<style>` block. Loads right after
+  prism-shared in build order (build.sh/ps1/smoke).
+- **weather card** now renders `P.weatherAnim(condition,…)` instead of
+  `P.weatherIcon(…)`; `.icon` is 88px and `color:accent`, so `currentColor`
+  resolves to the accent and the glyph adapts light/dark. Dropped WEATHER_CSS
+  from the weather card. **Forecast card unchanged** (keeps the compact
+  `weatherIcon` set).
+- VERSION 0.13.0 → 0.14.0. Verified in real Chromium: partly-cloudy glyph in
+  accent blue (sun-rays + floating cloud, currentColor→accent), mapping
+  (sunny→rays, lightning-rainy→bolt, unknown→cloud) + animate:false strip all
+  correct. No console errors.
+
 ### 2026-07-18 — Lightning + Lux cards (v0.13.0)
 - **`prism-lightning-card`** (`src/prism-lightning-card.js`): strike count as the
   dominant (accent-coloured) value, "Last …" relative time + "… km away" sub

@@ -156,14 +156,14 @@
       this.shadowRoot.innerHTML = `
         <style>
           ${P.TOKEN_STYLE}
-          ${P.WEATHER_CSS}
           .prism-card { display:flex; flex-direction:column; cursor:pointer; }
           .content { display:flex; align-items:center; gap:12px; }
           .main { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
           .temp { font-size:46px; font-weight:750; line-height:1; letter-spacing:-2px; color:var(--_text); }
           .cond { font-size:15px; font-weight:650; color:var(--_text); margin-top:2px; }
           .sub { font-size:12px; font-weight:500; color:var(--_text-2); }
-          .icon { flex:none; }
+          .icon { flex:none; width:88px; height:88px; color:${accent}; }
+          .icon svg { display:block; width:100%; height:100%; }
           .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
           .chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 7px; border-radius:999px;
                   background:var(--_surface-2); font-size:12px; font-weight:600; color:var(--_text-2);
@@ -178,7 +178,7 @@
               <div class="cond">${P.esc(label)}</div>
               ${subLine ? `<div class="sub">${P.esc(subLine)}</div>` : ''}
             </div>
-            <div class="icon">${P.weatherIcon(condition, { animated: c.animate !== false, size: 88 })}</div>
+            <div class="icon">${P.weatherAnim(condition, { animated: c.animate !== false })}</div>
           </div>
           ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
         </div>`;
