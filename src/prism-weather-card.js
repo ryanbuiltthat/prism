@@ -162,8 +162,9 @@
           .temp { font-size:46px; font-weight:750; line-height:1; letter-spacing:-2px; color:var(--_text); }
           .cond { font-size:15px; font-weight:650; color:var(--_text); margin-top:2px; }
           .sub { font-size:12px; font-weight:500; color:var(--_text-2); }
-          .icon { flex:none; width:88px; height:88px; color:${accent}; }
+          .icon { flex:none; width:88px; height:88px; }
           .icon svg { display:block; width:100%; height:100%; }
+          .icon.no-anim svg * { animation:none !important; }
           .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
           .chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 7px; border-radius:999px;
                   background:var(--_surface-2); font-size:12px; font-weight:600; color:var(--_text-2);
@@ -178,7 +179,7 @@
               <div class="cond">${P.esc(label)}</div>
               ${subLine ? `<div class="sub">${P.esc(subLine)}</div>` : ''}
             </div>
-            <div class="icon">${P.weatherAnim(condition, { animated: c.animate !== false })}</div>
+            <div class="icon${c.animate === false ? ' no-anim' : ''}">${P.weatherAnim(condition)}</div>
           </div>
           ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
         </div>`;

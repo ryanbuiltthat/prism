@@ -132,6 +132,28 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Weather card: full-colour animated icon set (v0.15.0)
+- **User feedback:** the currentColor/accent icons rendered monochrome; they
+  supplied a **multi-colour** replacement set (gradients + hex). Reworked
+  `src/prism-weather-anim.js` to full colour — dropped currentColor entirely.
+- Assets (viewBox 64): user's `partly-cloudy` (fixed a stray malformed/unused
+  `linearGradient` in its defs), `pouring` (their "heavy rain" w/ splashes),
+  `snowy`, `thunderstorm`, `windy`, `hail` verbatim; authored `clear-day`
+  (radial `sun-grad` FFD166→F77F00 + orange rays), `clear-night` (cream moon +
+  gold stars), `cloudy` (layered #E2EAF4/#C4D2E6), `rainy` (grey cloud + blue
+  drops), `fog` to match. Snow/hail flakes kept white **+ a faint #B7CBE0
+  outline** so they stay visible on a white light-theme card. MAP now routes
+  `windy`/`windy-variant`→windy and `hail`→hail (were folded before).
+  `weatherAnim(state)` no longer takes an `animated` flag (colours live in the
+  `<style>`, so stripping it would drop colour).
+- Weather card: `.icon` dropped `color:accent`; `animate:false` now adds a
+  `.no-anim` class (`.icon.no-anim svg * { animation:none !important }`) instead
+  of the removed strip. Forecast card unchanged.
+- VERSION 0.14.0 → 0.15.0. Verified in real Chromium: all 11 states render in
+  colour on light + dark (orange sun, blue rain, yellow bolt, green wind leaf,
+  outlined white snow/hail); weather card sun uses `url(#sun-grad)`, not accent.
+  No console errors.
+
 ### 2026-07-18 — Weather card: currentColor animated icon set (v0.14.0)
 - **User request:** use a supplied set of animated `currentColor` SVGs for the
   weather (current-conditions) card's hero icon (theme-inheriting), keyed by HA
