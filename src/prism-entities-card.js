@@ -121,7 +121,7 @@
             nameRow.append(nameSel, nameTf);
 
             // Icon + secondary source.
-            const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => set({ icon: v }));
+            const iconTf = this._iconField(row.icon, (v) => set({ icon: v }));
             const sec = row.secondary || '';
             const secIsEntity = sec.indexOf('.') > -1;
             const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => set({ secondary: v || undefined }));

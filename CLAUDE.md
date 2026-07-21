@@ -132,6 +132,22 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Editor icon fields: HA icon-picker dropdown w/ fallback (v0.16.5)
+- **User:** can the visual editor use the icon picker dropdown? Added a shared
+  `_iconField(value, onChange, label?)` on `PrismEditor`: uses HA's searchable
+  **`ha-icon-picker`** when that element is registered, else falls back to the
+  native `.tf` text input (same defensive pattern as the v0.16.4 `ha-textfield`
+  fix — a missing custom element renders invisible). `set hass` / `_rerender`
+  now propagate `hass` to `ha-icon-picker` too (selector broadened to
+  `ha-entity-picker, ha-icon-picker`).
+- Swapped the 7 `_tf('Icon (mdi:…)', …)` calls for `_iconField(…)` across stat /
+  power / cover / linear-gauge / switch / light cards + the entities-card row
+  editor. Config key + card rendering unchanged (still `icon`).
+- Verified in Chromium both ways: with `ha-icon-picker` defined → the dropdown
+  is used and selecting an icon fires `config-changed`; with it undefined →
+  native `Icon (mdi:…)` input fallback, no errors. `bash build.sh` +
+  `node test/smoke.js` green. VERSION 0.16.4 → 0.16.5.
+
 ### 2026-07-21 — Editor text fields: drop `ha-textfield` for native `<input>` (v0.16.4)
 - **User (screenshots):** couldn't change the power card title — the visual
   editor was **missing every text field** (Title, Name, Icon, Unit, Decimals,

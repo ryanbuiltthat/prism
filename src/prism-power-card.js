@@ -24,7 +24,7 @@
         this._titleField(),
         this._picker('Power entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['sensor'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
