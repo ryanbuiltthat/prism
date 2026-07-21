@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 OUT="prism.js"
 FILES=(
   "src/prism-shared.js"
+  "src/prism-weather-anim.js"
   "src/prism-stat-card.js"
   "src/prism-gauge-card.js"
   "src/prism-sparkline-card.js"

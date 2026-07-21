@@ -432,7 +432,9 @@ unit: mph
 
 ## `custom:prism-weather-card`
 
-Flat **current-conditions tile**: a big temperature, a flat **animated condition icon** (shared Prism weather set), the condition label, **feels-like + today's high/low**, and **humidity / wind / pressure** chips. Reads a `weather.*` entity; today's H/L comes from its daily forecast (the `weather.get_forecasts` service).
+Flat **current-conditions tile**: a big temperature, an **animated condition icon**, the condition label, **feels-like + today's high/low**, and **humidity / wind / pressure** chips. Reads a `weather.*` entity; today's H/L comes from its daily forecast (the `weather.get_forecasts` service).
+
+The current-conditions icon uses a dedicated animated **`currentColor`** glyph set (`src/prism-weather-anim.js`), so it draws in the card's **accent** colour and adapts to light/dark themes. States are mapped from the Home Assistant weather condition (as normalized by e.g. the Tomorrow.io integration), with a cloud fallback for unknown states.
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
