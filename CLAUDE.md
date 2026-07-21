@@ -132,6 +132,24 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Lightning + Lux cards (v0.13.0)
+- **`prism-lightning-card`** (`src/prism-lightning-card.js`): strike count as the
+  dominant (accent-coloured) value, "Last …" relative time + "… km away" sub
+  lines, and the shared animated `weatherIcon('lightning')` (flickering bolt).
+  Config: `count_entity` (req-ish) / `distance_entity` / `time_entity` (timestamp
+  or minutes-ago), `accent` (amber), `animate`. `relTime` handles ISO or numeric.
+- **`prism-lux-card`** (`src/prism-lux-card.js`): a "living sun" — SVG disc + 12
+  rays whose size/length scale with `log10(lux)/log10(1e5)` and whose colour
+  warms by band (Dark→Bright sun); rays rotate + disc pulses (CSS, reduced-motion
+  aware via TOKEN_STYLE). Moon under 1 lx. Reads lux state or an `attribute`.
+- Now 22 cards. Wired build.sh / build.ps1 / smoke.js (lightning_*/illuminance
+  fixtures + 4 cases) / preview.html (mocks + 2 demos). README table + 2
+  quick-starts; full docs/cards.md sections + sizing rows. VERSION 0.12.0 →
+  0.13.0.
+- Verified in real Chromium (screenshots): lightning → amber "7 strikes", "Last
+  12m ago", "8 km away", flickering bolt; lux → warm sun w/ 12 long rays,
+  "18,500 lx", "Daylight". No console errors.
+
 ### 2026-07-18 — Air Quality (AQI) card (v0.12.0)
 - Added **`prism-aqi-card`** (`src/prism-aqi-card.js`): flat AQI tile, same
   segmented-scale family as the UV card. Big value coloured by US EPA category,

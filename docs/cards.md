@@ -606,6 +606,55 @@ title: Air Quality
 
 ---
 
+## `custom:prism-lightning-card`
+
+Flat **lightning tile**: the **strike count** is the dominant value, with the **last-strike time** and **distance** for context, and an animated flat storm cloud whose **bolt flickers**. Built for lightning sensors like Ecowitt / AS3935.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `count_entity` | string | — | Strike-count sensor — the big value. Required (unless `distance_entity`/`time_entity` is set). |
+| `distance_entity` | string | — | Distance to last strike (km or miles, from the sensor's unit). |
+| `time_entity` | string | — | Last-strike time — a timestamp, or a "minutes ago" number. |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `accent` | string | `amber` | Colours the strike-count value. |
+| `animate` | bool | `true` | Flicker the bolt (respects `prefers-reduced-motion`). |
+
+Tap opens more-info.
+
+```yaml
+type: custom:prism-lightning-card
+title: Lightning
+count_entity: sensor.lightning_strike_count
+distance_entity: sensor.lightning_distance
+time_entity: sensor.lightning_last_strike
+accent: amber
+```
+
+---
+
+## `custom:prism-lux-card`
+
+Flat **illuminance tile** with a **living sun**: the sun disc grows and its rays lengthen + **warm in colour** as the light level rises (log-scaled across the huge lux range), with a slow ray rotation and gentle pulse. At night (< 1 lx) it shows a moon. Big lux value + a **plain-language level**.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** An illuminance sensor (lux) — uses its state. |
+| `attribute` | string | — | Read an attribute instead of the state. |
+| `name` | string | friendly name | Used in the accessible label. |
+| `title` | string | — | Card header. |
+| `animate` | bool | `true` | Ray rotation + pulse (respects `prefers-reduced-motion`). |
+
+Levels: **< 10** Dark · **< 100** Dim · **< 1 000** Indoor · **< 10 000** Overcast · **< 25 000** Daylight · **≥ 25 000** Bright sun. The sun colour and the level label follow the band. Tap opens more-info.
+
+```yaml
+type: custom:prism-lux-card
+entity: sensor.illuminance
+title: Illuminance
+```
+
+---
+
 ## Sizing
 
 Cards implement `getGridOptions()` for the sections layout:
@@ -631,5 +680,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | UV | 3 | 6 |
 | Rain | 3 | 6 |
 | Air Quality | 3 | 6 |
+| Lightning | 3 | 6 |
+| Lux | 3 | 6 |
 
 You can override with `grid_options` per card.
