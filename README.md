@@ -51,6 +51,8 @@ Prism is two things working together:
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
 | **Air Quality** | `custom:prism-aqi-card` | AQI tile: a big value coloured by its US EPA category, the category + health advice, and a flat Good→Hazardous scale with a value marker. Reads an AQI sensor. |
+| **Lightning** | `custom:prism-lightning-card` | Lightning tile: strike count as the dominant value, last-strike time + distance for context, and an animated flat storm cloud with a flickering bolt. |
+| **Lux** | `custom:prism-lux-card` | Illuminance tile with a living sun whose rays grow and warm in colour as the light level rises (log-scaled), a slow rotation + pulse, and a plain-language level (Dark → Bright sun). Moon at night. |
 
 All cards have a **visual editor** with a configurable **title**, an **accent
 picker** (theme token, preset, or custom hex), work in **light + dark**, are
@@ -181,6 +183,23 @@ accent: blue
 type: custom:prism-aqi-card
 entity: sensor.air_quality_index
 title: Air Quality
+```
+
+```yaml
+# Lightning — strike count + last strike + distance, with an animated bolt.
+type: custom:prism-lightning-card
+title: Lightning
+count_entity: sensor.lightning_strike_count
+distance_entity: sensor.lightning_distance
+time_entity: sensor.lightning_last_strike
+accent: amber
+```
+
+```yaml
+# Lux — a living sun that grows/warms with the light level.
+type: custom:prism-lux-card
+entity: sensor.illuminance
+title: Illuminance
 ```
 
 ```yaml

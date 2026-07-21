@@ -119,6 +119,10 @@
         'sensor.rain_weekly':    { state: '1.9', attributes: { friendly_name: 'Rain Weekly', unit_of_measurement: 'in' } },
         'sensor.rain_monthly':   { state: '4.2', attributes: { friendly_name: 'Rain Monthly', unit_of_measurement: 'in' } },
         'sensor.aqi':            { state: '128', attributes: { friendly_name: 'Air Quality', unit_of_measurement: 'AQI' } },
+        'sensor.lightning_count':{ state: '7', attributes: { friendly_name: 'Lightning Strikes' } },
+        'sensor.lightning_dist': { state: '8', attributes: { friendly_name: 'Lightning Distance', unit_of_measurement: 'km' } },
+        'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
+        'sensor.illuminance':    { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -214,6 +218,8 @@
       { type: 'prism-uv-card', cfg: { entity: 'sensor.uv_index', title: 'UV Index' } },
       { type: 'prism-rain-card', cfg: { title: 'Rainfall', accent: 'blue', event_entity: 'sensor.rain_event', intensity_entity: 'sensor.rain_rate', hourly_entity: 'sensor.rain_hourly', daily_entity: 'sensor.rain_daily', weekly_entity: 'sensor.rain_weekly', monthly_entity: 'sensor.rain_monthly' } },
       { type: 'prism-aqi-card', cfg: { title: 'Air Quality', entity: 'sensor.aqi' } },
+      { type: 'prism-lightning-card', cfg: { title: 'Lightning', count_entity: 'sensor.lightning_count', distance_entity: 'sensor.lightning_dist', time_entity: 'sensor.lightning_last' } },
+      { type: 'prism-lux-card', cfg: { title: 'Illuminance', entity: 'sensor.illuminance' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

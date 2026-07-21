@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js', 'src/prism-lightning-card.js', 'src/prism-lux-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -75,6 +75,10 @@ const hass = {
     'sensor.rain_weekly': { state: '1.9', attributes: { friendly_name: 'Rain Weekly', unit_of_measurement: 'in' } },
     'sensor.rain_monthly': { state: '4.2', attributes: { friendly_name: 'Rain Monthly', unit_of_measurement: 'in' } },
     'sensor.aqi': { state: '128', attributes: { friendly_name: 'Air Quality', unit_of_measurement: 'AQI' } },
+    'sensor.lightning_count': { state: '7', attributes: { friendly_name: 'Lightning Strikes' } },
+    'sensor.lightning_distance': { state: '8', attributes: { friendly_name: 'Lightning Distance', unit_of_measurement: 'km' } },
+    'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
+    'sensor.illuminance': { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -160,6 +164,10 @@ check('parses compact history', async () => {});
     ['prism-rain-card', { event_entity: 'sensor.rain_event', animate: false, max: 2 }],
     ['prism-aqi-card', { entity: 'sensor.aqi', title: 'Air Quality' }],
     ['prism-aqi-card', { entity: 'sensor.aqi', show_advice: false, show_scale: false }],
+    ['prism-lightning-card', { title: 'Lightning', count_entity: 'sensor.lightning_count', distance_entity: 'sensor.lightning_distance', time_entity: 'sensor.lightning_last' }],
+    ['prism-lightning-card', { count_entity: 'sensor.lightning_count', animate: false }],
+    ['prism-lux-card', { entity: 'sensor.illuminance', title: 'Light' }],
+    ['prism-lux-card', { entity: 'sensor.x', animate: false }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {
