@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.16.0';
+  const VERSION = '0.16.1';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -344,13 +344,17 @@
     const moon = (cx, cy, r) =>
       `<path d="M${cx + r} ${cy - r * 0.75} a${r} ${r} 0 1 0 0 ${r * 1.5} a${r * 0.8} ${r * 0.8} 0 1 1 0 ${-r * 1.5} z" class="wx-moon"/>` +
       `<circle cx="${cx + r + 6}" cy="${cy - r - 2}" r="1.6" class="wx-star"/>`;
+    // Positioning lives on an outer <g> (a presentation-attribute transform);
+    // the drift animation lives on an inner <g>. If both sat on one element the
+    // CSS `transform` animation would clobber the inline translate/scale and the
+    // cloud would jump to the viewBox origin whenever animated.
     const cloud = (x, y, s, klass) =>
-      `<g class="wx-cloud-g" transform="translate(${x},${y}) scale(${s})">
+      `<g transform="translate(${x},${y}) scale(${s})"><g class="wx-cloud-g">
         <circle cx="0" cy="7" r="10" class="${klass}"/>
         <circle cx="13" cy="0" r="13" class="${klass}"/>
         <circle cx="27" cy="8" r="10" class="${klass}"/>
         <rect x="-10" y="9" width="47" height="13" rx="6.5" class="${klass}"/>
-      </g>`;
+      </g></g>`;
     const rain = (xs, y) => xs.map((x, i) =>
       `<line x1="${x}" y1="${y}" x2="${x - 3}" y2="${y + 8}" class="wx-rain" stroke-width="3" style="animation-delay:${(i * 0.22).toFixed(2)}s"/>`).join('');
     const snow = (xs, y) => xs.map((x, i) =>
