@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.16.4';
+  const VERSION = '0.16.5';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -431,7 +431,7 @@
 
     set hass(hass) {
       this._hass = hass;
-      this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => {
+      this.shadowRoot.querySelectorAll('ha-entity-picker, ha-icon-picker').forEach((p) => {
         p.hass = hass;
       });
     }
@@ -510,6 +510,23 @@
       if (opts.domains) el.includeDomains = opts.domains;
       el.addEventListener('value-changed', (e) => onChange(e.detail.value));
       return el;
+    }
+
+    // Icon field. Uses HA's searchable icon picker (`ha-icon-picker`) when that
+    // element is registered in the frontend, otherwise falls back to a native
+    // text input — some frontend builds don't load it, and a missing custom
+    // element would render as an invisible node.
+    _iconField(value, onChange, label = 'Icon') {
+      if (customElements.get('ha-icon-picker')) {
+        const el = document.createElement('ha-icon-picker');
+        if (this._hass) el.hass = this._hass;
+        el.value = value ?? '';
+        el.label = label;
+        el.style.width = '100%';
+        el.addEventListener('value-changed', (e) => onChange(e.detail.value));
+        return el;
+      }
+      return this._tf(label + ' (mdi:…)', value, onChange);
     }
 
     _select(label, options, value, onChange) {
@@ -662,7 +679,7 @@
     // Re-render the editor and re-bind hass to freshly created entity pickers.
     _rerender() {
       this._render();
-      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
+      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker, ha-icon-picker').forEach((p) => { p.hass = this._hass; });
     }
 
     // Generic dynamic list editor (add / remove / reorder rows).
@@ -1067,7 +1084,7 @@
         this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
@@ -1649,7 +1666,7 @@
         this._titleField(),
         this._picker('Power entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['sensor'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
@@ -2172,7 +2189,7 @@
         this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Minimum', c.min, (v) => this._patch('min', v), { type: 'number' }),
         this._tf('Maximum', c.max, (v) => this._patch('max', v), { type: 'number' }),
@@ -2446,7 +2463,7 @@
             nameRow.append(nameSel, nameTf);
 
             // Icon + secondary source.
-            const iconTf = this._tf('Icon (mdi:…)', row.icon, (v) => set({ icon: v }));
+            const iconTf = this._iconField(row.icon, (v) => set({ icon: v }));
             const sec = row.secondary || '';
             const secIsEntity = sec.indexOf('.') > -1;
             const secPicker = this._picker('Secondary entity', secIsEntity ? sec : '', (v) => set({ secondary: v || undefined }));
@@ -3206,7 +3223,7 @@
         this._titleField(),
         this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['switch', 'input_boolean', 'fan', 'light', 'automation', 'script', 'humidifier', 'siren'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._select('Secondary line', [
           { value: '', label: 'None' },
@@ -3334,7 +3351,7 @@
         this._titleField(),
         this._picker('Light entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['light'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show brightness slider', c.slider !== false, (v) => this._patch('slider', v)),
         this._switch('Use the bulb colour', c.use_color !== false, (v) => this._patch('use_color', v)),
@@ -3672,7 +3689,7 @@
         this._titleField(),
         this._picker('Cover entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['cover'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show position slider', c.slider !== false, (v) => this._patch('slider', v)),
         this._hint('Buttons call cover.open/close/stop; the slider calls cover.set_cover_position.')

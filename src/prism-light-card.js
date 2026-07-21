@@ -20,7 +20,7 @@
         this._titleField(),
         this._picker('Light entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['light'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show brightness slider', c.slider !== false, (v) => this._patch('slider', v)),
         this._switch('Use the bulb colour', c.use_color !== false, (v) => this._patch('use_color', v)),

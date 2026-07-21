@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.16.4';
+  const VERSION = '0.16.5';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -427,7 +427,7 @@
 
     set hass(hass) {
       this._hass = hass;
-      this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => {
+      this.shadowRoot.querySelectorAll('ha-entity-picker, ha-icon-picker').forEach((p) => {
         p.hass = hass;
       });
     }
@@ -506,6 +506,23 @@
       if (opts.domains) el.includeDomains = opts.domains;
       el.addEventListener('value-changed', (e) => onChange(e.detail.value));
       return el;
+    }
+
+    // Icon field. Uses HA's searchable icon picker (`ha-icon-picker`) when that
+    // element is registered in the frontend, otherwise falls back to a native
+    // text input — some frontend builds don't load it, and a missing custom
+    // element would render as an invisible node.
+    _iconField(value, onChange, label = 'Icon') {
+      if (customElements.get('ha-icon-picker')) {
+        const el = document.createElement('ha-icon-picker');
+        if (this._hass) el.hass = this._hass;
+        el.value = value ?? '';
+        el.label = label;
+        el.style.width = '100%';
+        el.addEventListener('value-changed', (e) => onChange(e.detail.value));
+        return el;
+      }
+      return this._tf(label + ' (mdi:…)', value, onChange);
     }
 
     _select(label, options, value, onChange) {
@@ -658,7 +675,7 @@
     // Re-render the editor and re-bind hass to freshly created entity pickers.
     _rerender() {
       this._render();
-      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((p) => { p.hass = this._hass; });
+      if (this._hass) this.shadowRoot.querySelectorAll('ha-entity-picker, ha-icon-picker').forEach((p) => { p.hass = this._hass; });
     }
 
     // Generic dynamic list editor (add / remove / reorder rows).

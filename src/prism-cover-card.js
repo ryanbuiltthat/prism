@@ -22,7 +22,7 @@
         this._titleField(),
         this._picker('Cover entity (required)', c.entity, (v) => this._patch('entity', v), { domains: ['cover'] }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
-        this._tf('Icon (mdi:…)', c.icon, (v) => this._patch('icon', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show position slider', c.slider !== false, (v) => this._patch('slider', v)),
         this._hint('Buttons call cover.open/close/stop; the slider calls cover.set_cover_position.')
