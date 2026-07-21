@@ -108,10 +108,11 @@
       this.shadowRoot.innerHTML = `
         <style>
           ${P.TOKEN_STYLE}
-          ${P.WEATHER_CSS}
           .prism-card { display:flex; flex-direction:column; cursor:pointer; }
           .content { display:flex; align-items:center; gap:14px; }
-          .icon { flex:none; }
+          .icon { flex:none; width:84px; height:84px; }
+          .icon svg { display:block; width:100%; height:100%; }
+          .icon.no-anim svg * { animation:none !important; }
           .info { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
           .big { display:flex; align-items:baseline; gap:6px; }
           .big .n { font-size:44px; font-weight:750; line-height:1; letter-spacing:-1.5px; color:${accent}; }
@@ -122,7 +123,7 @@
         <div class="prism-card" role="button" tabindex="0" aria-label="${P.esc(name)}">
           ${P.titleHead(c.title)}
           <div class="content">
-            <div class="icon">${P.weatherIcon('lightning', { animated: c.animate !== false, size: 84 })}</div>
+            <div class="icon${c.animate === false ? ' no-anim' : ''}">${P.weatherAnim('lightning')}</div>
             <div class="info">
               <div class="big"><span class="n">${P.esc(bigVal)}</span>${bigUnit ? `<span class="u">${P.esc(bigUnit)}</span>` : ''}</div>
               ${subs.map((s) => `<div class="sub">${P.esc(s)}</div>`).join('')}

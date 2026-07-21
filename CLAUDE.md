@@ -132,6 +132,17 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-18 — Lightning card: use the full-colour thunderstorm glyph (v0.15.1)
+- **User feedback:** the lightning card's icon (old flat `weatherIcon('lightning')`
+  — grey cloud with a detached bolt floating below it) looked off. Swapped it to
+  `P.weatherAnim('lightning')` = the new full-colour thunderstorm glyph (dark
+  #495057 cloud with the #FFE066 bolt integrated inside, strobe animation).
+- Dropped `WEATHER_CSS` from the lightning card; `.icon` now sized 84px with
+  `.icon svg{width/height:100%}` and `animate:false` → `.no-anim` class (same
+  pattern as the weather card). Big count stays accent (amber). VERSION 0.15.0
+  → 0.15.1. Verified in Chromium: integrated bolt, "7 strikes / Last 12m ago /
+  8 km away". No console errors.
+
 ### 2026-07-18 — Weather card: full-colour animated icon set (v0.15.0)
 - **User feedback:** the currentColor/accent icons rendered monochrome; they
   supplied a **multi-colour** replacement set (gradients + hex). Reworked
