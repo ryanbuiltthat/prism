@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.16.3';
+  const VERSION = '0.16.4';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -460,18 +460,40 @@
     }
 
     // ── Controls ────────────────────────────────────────────────────
+    // Text / number field. Uses a native <input> (not `ha-textfield`): that
+    // HA element isn't guaranteed to be registered in every frontend build, and
+    // when it's missing it renders as an empty invisible node — which silently
+    // dropped every text field (Title, Name, …) from the editors. A native
+    // input always renders and matches the native <select> used for dropdowns.
     _tf(label, value, onChange, opts = {}) {
-      const el = document.createElement('ha-textfield');
-      el.label = label;
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const lbl = document.createElement('label');
+      lbl.className = 'lbl';
+      lbl.textContent = label;
+
+      const el = document.createElement('input');
+      el.className = 'tf';
       el.value = value ?? '';
-      el.style.width = '100%';
       if (opts.type) el.type = opts.type;
-      if (opts.suffix) el.suffix = opts.suffix;
+      if (opts.type === 'number') el.inputMode = 'decimal';
       el.addEventListener('change', (e) => {
         const v = e.target.value;
         onChange(opts.type === 'number' ? (v === '' ? '' : Number(v)) : v.trim());
       });
-      return el;
+
+      if (opts.suffix) {
+        const row = document.createElement('div');
+        row.className = 'tf-row';
+        const sfx = document.createElement('span');
+        sfx.className = 'tf-suffix';
+        sfx.textContent = opts.suffix;
+        row.append(el, sfx);
+        wrap.append(lbl, row);
+      } else {
+        wrap.append(lbl, el);
+      }
+      return wrap;
     }
 
     _picker(label, value, onChange, opts = {}) {
@@ -602,7 +624,17 @@
         .color { width:44px; height:44px; padding:0; border:1px solid var(--divider-color,#ccc); border-radius:6px; background:none; cursor:pointer; }
         .section { font:600 12px/1 var(--paper-font-body1_-_font-family, sans-serif); text-transform:uppercase; letter-spacing:.06em; color:var(--secondary-text-color,#757575); margin-top:8px; padding-top:12px; border-top:1px solid var(--divider-color,rgba(0,0,0,.08)); }
         .hint { font:400 11px/1.4 var(--paper-font-body1_-_font-family, sans-serif); color:var(--secondary-text-color,#757575); }
-        ha-textfield, ha-entity-picker { width:100%; }
+        .tf {
+          width:100%; box-sizing:border-box; padding:12px 10px; border-radius:6px;
+          border:1px solid var(--divider-color,#ccc);
+          background:var(--card-background-color,#fff); color:var(--primary-text-color,#212121);
+          font:400 14px/1.2 inherit;
+        }
+        .tf:focus { outline:none; border-color:var(--primary-color,#3aa0e8); }
+        .tf-row { display:flex; align-items:center; gap:8px; }
+        .tf-row .tf { flex:1; }
+        .tf-suffix { font:400 13px/1 inherit; color:var(--secondary-text-color,#757575); white-space:nowrap; }
+        ha-entity-picker { width:100%; }
         .plist { display:flex; flex-direction:column; gap:14px; }
         .plist-row { display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--divider-color,rgba(0,0,0,.08)); border-radius:8px; }
         .plist-body { display:flex; flex-direction:column; gap:8px; }
