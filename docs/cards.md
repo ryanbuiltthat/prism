@@ -542,7 +542,9 @@ units: us
 
 ## `custom:prism-sun-card`
 
-Flat **sun-path arc**: a dome of the sky from sunrise to sunset with the sun riding along it (a moon below the horizon at night), the **traveled portion filled with the accent**, **sunrise/sunset times** at each end, and a live **"sets in / rises in"** countdown in the middle.
+Flat **sun-path arc**: a dome of the sky from sunrise to sunset with the sun riding along it, the **traveled portion filled with the accent**, **sunrise/sunset times** at each end, and a live **"sets in / rises in"** countdown in the middle.
+
+Optionally, **after sunset** it flips to a **moon view**: a moon-phase glyph drawn to the current illuminated fraction, the phase name + **illumination %**, the next **sunrise**, and — when their sensors are configured — **moonrise / moonset**.
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
@@ -550,14 +552,31 @@ Flat **sun-path arc**: a dome of the sky from sunrise to sunset with the sun rid
 | `name` | string | friendly name | Used in the accessible label. |
 | `title` | string | — | Card header. |
 | `accent` | string | `amber` | Colours the traveled arc and the sun. |
+| `show_moon` | bool | `true` | After sunset, show the moon view instead of the resting sun arc. |
+| `moon_entity` | string | `sensor.moon` | Moon-phase sensor (the Moon integration's `sensor.moon`). Its state is a phase name like `waxing_gibbous`, or a numeric phase. |
+| `moonrise_entity` | string | — | Optional sensor with a moonrise timestamp. |
+| `moonset_entity` | string | — | Optional sensor with a moonset timestamp. |
+| `moon_illumination_entity` | string | — | Optional illumination-% sensor. If unset, illumination is computed from the phase. |
 
-Daytime progress uses the next setting as today's sunset and approximates today's sunrise from the next rising; at night the arc rests and a moon sits on the horizon. Tap opens more-info.
+Daytime progress uses the next setting as today's sunset and approximates today's sunrise from the next rising. At night, with `show_moon` on and a moon sensor available, the card shows the moon phase; otherwise the arc rests with a moon on the horizon. Tap opens more-info.
 
 ```yaml
 type: custom:prism-sun-card
 entity: sun.sun
 title: Sun
 accent: amber
+```
+
+```yaml
+# With moon phase after sunset (needs the Moon integration for sensor.moon).
+type: custom:prism-sun-card
+entity: sun.sun
+title: Sun & Moon
+accent: amber
+show_moon: true
+moon_entity: sensor.moon
+moonrise_entity: sensor.moonrise   # optional
+moonset_entity: sensor.moonset     # optional
 ```
 
 ---
