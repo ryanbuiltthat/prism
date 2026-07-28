@@ -5,10 +5,12 @@
  * times at each end, and a live "sets in / rises in" countdown. Reads `sun.sun`.
  *
  * Optionally, after sunset it flips to a **moon view**: a moon-phase glyph
- * drawn to the current illuminated fraction, the phase name + illumination, the
- * next sunrise, and (when sensors are configured) moonrise / moonset. Reads a
- * moon-phase sensor (`sensor.moon` from the Moon integration) plus optional
- * moonrise / moonset / illumination sensors.
+ * drawn to the current illuminated fraction and positioned on the sky by the
+ * moon's azimuth, the phase name + illumination, the next sunrise, and chips
+ * for moonrise / moonset / next full moon / next dark night. The extra data
+ * (azimuth, next full moon, dark-night duration) is designed to pair with the
+ * AstroWeather integration (github.com/mawinkler/astroweather), but any sensor
+ * providing those values works.
  *
  * type: custom:prism-sun-card
  */
@@ -21,6 +23,22 @@
   function humanDur(ms) {
     if (isNaN(ms) || ms < 0) return '';
     const m = Math.round(ms / 60000), h = Math.floor(m / 60), mm = m % 60;
+    return h ? `${h}h ${mm}m` : `${mm}m`;
+  }
+  // Coarse "in Xd / Xh / Xm" for a future timestamp (used for the next full moon).
+  function relFuture(t) {
+    if (isNaN(t)) return '';
+    const d = t - Date.now();
+    if (d <= 0) return 'now';
+    let days = Math.floor(d / DAY);
+    if (days >= 1) {
+      let h = Math.round((d - days * DAY) / 3600000);
+      if (h >= 24) { days += Math.floor(h / 24); h %= 24; } // avoid "4d 24h"
+      return h ? `${days}d ${h}h` : `${days}d`;
+    }
+    let h = Math.floor(d / 3600000);
+    let mm = Math.round((d % 3600000) / 60000);
+    if (mm >= 60) { h += 1; mm = 0; }
     return h ? `${h}h ${mm}m` : `${mm}m`;
   }
 
@@ -39,7 +57,7 @@
   const illumFromK = (k) => (1 - Math.cos(2 * Math.PI * k)) / 2;
 
   // Resolve a moon-phase state into { label, k }. Accepts a phase name, or a
-  // numeric value (0–1 fraction or 0–100 percent → nearest named phase feel).
+  // numeric value (0–1 fraction or 0–100 percent).
   function moonInfo(state) {
     const s = String(state == null ? '' : state).toLowerCase().trim();
     if (MOON[s]) return MOON[s];
@@ -48,7 +66,6 @@
     const n = parseFloat(s);
     if (!isNaN(n)) {
       const k = n > 1 ? (n / 100) % 1 : n % 1; // percent or fraction → cycle pos
-      // Nearest named phase for the label.
       let best = 'new_moon', bd = Infinity;
       for (const name in MOON) { const d = Math.abs(MOON[name].k - k); if (d < bd) { bd = d; best = name; } }
       return { label: MOON[best].label, k };
@@ -81,10 +98,13 @@
         this._section('Moon'),
         this._switch('Show moon after sunset', c.show_moon !== false, (v) => this._patch('show_moon', v)),
         this._picker('Moon phase sensor', c.moon_entity, (v) => this._patch('moon_entity', v), { domains: ['sensor'] }),
+        this._picker('Moon azimuth sensor (optional)', c.moon_azimuth_entity, (v) => this._patch('moon_azimuth_entity', v), { domains: ['sensor'] }),
         this._picker('Moonrise sensor (optional)', c.moonrise_entity, (v) => this._patch('moonrise_entity', v), { domains: ['sensor'] }),
         this._picker('Moonset sensor (optional)', c.moonset_entity, (v) => this._patch('moonset_entity', v), { domains: ['sensor'] }),
+        this._picker('Next full moon sensor (optional)', c.next_full_moon_entity, (v) => this._patch('next_full_moon_entity', v), { domains: ['sensor'] }),
+        this._picker('Next dark night sensor (optional)', c.next_dark_night_entity, (v) => this._patch('next_dark_night_entity', v), { domains: ['sensor'] }),
         this._picker('Illumination sensor (optional)', c.moon_illumination_entity, (v) => this._patch('moon_illumination_entity', v), { domains: ['sensor'] }),
-        this._hint('Defaults to sensor.moon (Moon integration) for the phase. Moonrise/moonset need their own sensors; illumination is computed from the phase if no sensor is set.')
+        this._hint('Defaults to sensor.moon for the phase. Azimuth positions the moon on the sky; next full moon / next dark night pair with the AstroWeather integration (moon_azimuth, moon_next_full_moon, deep_sky_darkness). Illumination is computed from the phase if no sensor is set.')
       );
     }
   }
@@ -106,8 +126,18 @@
 
     set hass(hass) { this._hass = hass; this._render(); }
 
-    getCardSize() { return 3; }
-    getGridOptions() { return { rows: 3, columns: 6, min_rows: 3, min_columns: 4 }; }
+    // The moon view can carry an extra chip row, so make the tile a touch taller
+    // when any of the optional moon sensors are configured.
+    _hasMoonExtras() {
+      const c = this._config || {};
+      return c.show_moon !== false && !!(c.moonrise_entity || c.moonset_entity || c.next_full_moon_entity || c.next_dark_night_entity);
+    }
+    getCardSize() { return this._hasMoonExtras() ? 4 : 3; }
+    getGridOptions() {
+      return this._hasMoonExtras()
+        ? { rows: 4, columns: 6, min_rows: 3, min_columns: 4 }
+        : { rows: 3, columns: 6, min_rows: 3, min_columns: 4 };
+    }
 
     static getConfigElement() { return document.createElement('prism-sun-card-editor'); }
     static getStubConfig(hass) {
@@ -121,11 +151,38 @@
       }));
     }
 
-    _num(id) {
-      return id && this._hass.states[id] ? parseFloat(this._hass.states[id].state) : NaN;
+    _num(id) { return id && this._hass.states[id] ? parseFloat(this._hass.states[id].state) : NaN; }
+    _time(id) { return id && this._hass.states[id] ? Date.parse(this._hass.states[id].state) : NaN; }
+
+    // Moon azimuth: a dedicated sensor, else an azimuth attribute on the moon
+    // sensor (AstroWeather exposes moon_azimuth as both).
+    _azimuth(c, moonSt) {
+      const a = this._num(c.moon_azimuth_entity);
+      if (!isNaN(a)) return ((a % 360) + 360) % 360;
+      const at = (moonSt && moonSt.attributes) || {};
+      const n = parseFloat(at.azimuth != null ? at.azimuth : at.moon_azimuth);
+      return isNaN(n) ? NaN : ((n % 360) + 360) % 360;
     }
-    _time(id) {
-      return id && this._hass.states[id] ? Date.parse(this._hass.states[id].state) : NaN;
+    _altitude(c, moonSt) {
+      const src = (c.moon_azimuth_entity && this._hass.states[c.moon_azimuth_entity]) || moonSt;
+      const at = (src && src.attributes) || {};
+      const n = parseFloat(at.elevation != null ? at.elevation : (at.altitude != null ? at.altitude : at.moon_altitude));
+      return isNaN(n) ? NaN : n;
+    }
+    // "Next dark night" chip text: a timestamp → "in Xh", or a duration sensor
+    // (e.g. AstroWeather deep-sky darkness hours) → "6.2 h".
+    _darkText(id) {
+      const st = id && this._hass.states[id];
+      if (!st) return '';
+      const s = st.state;
+      if (s == null || s === '' || s === 'unknown' || s === 'unavailable') return '';
+      if (/^\d{4}-\d\d-\d\dt/i.test(String(s))) {
+        const t = Date.parse(s);
+        if (!isNaN(t)) { const r = relFuture(t); return r === 'now' ? fmtT(t) : `in ${r}`; }
+      }
+      const n = parseFloat(s);
+      if (!isNaN(n)) { const u = st.attributes.unit_of_measurement || 'h'; return `${P.fmtNumber(n, n < 10 ? 1 : 0)} ${u}`; }
+      return String(s);
     }
 
     _render() {
@@ -142,8 +199,6 @@
       const elev = parseFloat(a.elevation);
       const isDay = st ? (st.state === 'above_horizon' || (!isNaN(elev) && elev > 0)) : false;
 
-      // Should we render the moon view? Only after sunset, when enabled and a
-      // moon-phase sensor is available.
       const moonId = c.moon_entity || 'sensor.moon';
       const moonSt = this._hass.states[moonId];
       const showMoon = c.show_moon !== false && !isDay && !!moonSt;
@@ -164,9 +219,10 @@
           .moon-lit { fill:#cdd6e5; stroke:var(--_text-2); stroke-width:1.2; }
           .star { fill:var(--_text-2); }
           .moon .end ha-icon { color:var(--_text-2); }
-          .subrow { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:6px;
-                    font-size:12px; font-weight:600; color:var(--_text-2); --mdc-icon-size:15px; }
-          .subrow .rs { display:inline-flex; align-items:center; gap:4px; }
+          .chips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:8px; }
+          .chip { display:inline-flex; align-items:center; gap:4px; padding:3px 9px 3px 6px; border-radius:999px;
+                  background:var(--_surface-2); font-size:11px; font-weight:600; color:var(--_text-2);
+                  --mdc-icon-size:14px; white-space:nowrap; }
         </style>`;
 
       const inner = showMoon
@@ -183,7 +239,7 @@
       P.bindTap(this.shadowRoot.querySelector('.prism-card'), () => this._moreInfo(), () => this._moreInfo());
     }
 
-    // Daytime sun-path arc (unchanged behaviour).
+    // Daytime sun-path arc.
     _sunView(a, st, rise, set, now, isDay, accent, name) {
       let f = 0, haveArc = false;
       if (isDay && !isNaN(rise) && !isNaN(set)) {
@@ -242,32 +298,52 @@
         </div>`;
     }
 
-    // Night moon view: phase glyph + phase name / illumination, next sunrise,
-    // and moonrise / moonset when their sensors are configured.
+    // Night moon view: phase glyph positioned by azimuth, phase / illumination,
+    // next sunrise, and chips for moonrise / moonset / full moon / dark night.
     _moonView(moonSt, sunRise, c, name) {
       const mi = moonInfo(moonSt.state) || { label: (moonSt.state || 'Moon'), k: 0.5 };
       const illumSensor = this._num(c.moon_illumination_entity);
       const illum = !isNaN(illumSensor) ? illumSensor : Math.round(illumFromK(mi.k) * 100);
       const moonrise = this._time(c.moonrise_entity);
       const moonset = this._time(c.moonset_entity);
+      const az = this._azimuth(c, moonSt);
+      const alt = this._altitude(c, moonSt);
 
-      // Moon glyph (viewBox 200×96): a disk with the lit fraction + a few stars.
-      const CX = 100, CY = 40, R = 26;
-      const stars = [[46, 22], [58, 52], [150, 26], [162, 58], [134, 16]]
+      // Place the moon on the sky dome by azimuth (E→S→W maps left→top→right);
+      // altitude, when available, scales how high it rides. Falls back to a
+      // centred disk when there's no azimuth.
+      let cx = 100, cy = 40, r = 22;
+      const haveAz = !isNaN(az);
+      if (haveAz) {
+        const R = 60, CXo = 100, CYo = 78;
+        const fr = P.clamp((az - 90) / 180, 0, 1);
+        const th = Math.PI * (1 - fr);
+        const altScale = !isNaN(alt) ? P.clamp(alt / 70, 0.18, 1) : 0.85;
+        cx = CXo + R * Math.cos(th);
+        cy = CYo - R * Math.sin(th) * altScale;
+        r = 18;
+      }
+
+      const stars = [[46, 22], [58, 52], [150, 26], [162, 58], [134, 16], [92, 12]]
         .map(([x, y], i) => `<circle class="star" cx="${x}" cy="${y}" r="${i % 2 ? 1.1 : 1.6}" opacity="${0.5 + (i % 2) * 0.3}"/>`).join('');
-      const litPath = mi.k <= 0.001 ? '' // new moon: nothing lit
-        : mi.k >= 0.499 && mi.k <= 0.501
-          ? `<circle class="moon-lit" cx="${CX}" cy="${CY}" r="${R}"/>` // full
-          : `<path class="moon-lit" d="${moonLitPath(CX, CY, R, mi.k)}"/>`;
+      const litPath = mi.k <= 0.001 ? ''
+        : (mi.k >= 0.499 && mi.k <= 0.501)
+          ? `<circle class="moon-lit" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}"/>`
+          : `<path class="moon-lit" d="${moonLitPath(cx, cy, r, mi.k)}"/>`;
 
-      const rsBits = [];
-      if (!isNaN(moonrise)) rsBits.push(`<span class="rs"><ha-icon icon="mdi:arrow-up-thin"></ha-icon>Moonrise ${fmtT(moonrise)}</span>`);
-      if (!isNaN(moonset)) rsBits.push(`<span class="rs"><ha-icon icon="mdi:arrow-down-thin"></ha-icon>Moonset ${fmtT(moonset)}</span>`);
+      const chip = (icon, text) => `<span class="chip"><ha-icon icon="${icon}"></ha-icon>${P.esc(text)}</span>`;
+      const chips = [];
+      if (!isNaN(moonrise)) chips.push(chip('mdi:arrow-up-thin', `Rise ${fmtT(moonrise)}`));
+      if (!isNaN(moonset)) chips.push(chip('mdi:arrow-down-thin', `Set ${fmtT(moonset)}`));
+      const ffm = this._time(c.next_full_moon_entity);
+      if (!isNaN(ffm)) chips.push(chip('mdi:moon-full', `Full in ${relFuture(ffm)}`));
+      const dark = this._darkText(c.next_dark_night_entity);
+      if (dark) chips.push(chip('mdi:weather-night', `Dark ${dark}`));
 
       return `
         <svg class="moon" viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet">
           ${stars}
-          <circle class="moon-disk" cx="${CX}" cy="${CY}" r="${R}"/>
+          <circle class="moon-disk" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}"/>
           ${litPath}
           <line class="horizon" x1="18" y1="80" x2="182" y2="80"/>
         </svg>
@@ -276,7 +352,7 @@
           <span class="mid">${P.esc(mi.label)}</span>
           <span class="end"><ha-icon icon="mdi:weather-sunset-up"></ha-icon>${fmtT(sunRise)}</span>
         </div>
-        ${rsBits.length ? `<div class="subrow">${rsBits.join('')}</div>` : ''}`;
+        ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}`;
     }
   }
 
@@ -284,6 +360,6 @@
   P.registerCard({
     type: 'prism-sun-card',
     name: 'Prism Sun Card',
-    description: 'Flat sun-path arc with sunrise/sunset + countdown; optionally flips to a moon-phase view after sunset.',
+    description: 'Flat sun-path arc with sunrise/sunset + countdown; optionally an azimuth-positioned moon-phase view (phase, illumination, next full moon, dark night) after sunset.',
   });
 })();

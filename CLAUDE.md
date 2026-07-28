@@ -132,6 +132,30 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Sun card: AstroWeather moon data + azimuth positioning (v0.17.1)
+- **User:** add "next full moon", "next dark night", and make the moon graphic
+  reflect the moon azimuth — data from the AstroWeather integration
+  (mawinkler/astroweather).
+- `_moonView` now positions the moon glyph on the sky **by azimuth**: a dedicated
+  `moon_azimuth_entity` (or an `azimuth`/`moon_azimuth` attribute on the moon
+  sensor) maps E(90)→S(180)→W(270) to left→top→right along a dome; `moon_altitude`
+  (when present as an attr) scales how high it rides. No azimuth → centred disk
+  fallback. Verified E/S/W → cx 40/100/160.
+- Added chips below the ends row: moonrise ↑ / moonset ↓ (moved off the old
+  subrow), **Full in Xd** (`next_full_moon_entity`, a timestamp via `relFuture`),
+  and **Dark …** (`next_dark_night_entity` — a timestamp → "in Xh", or a duration
+  sensor like AstroWeather `deep_sky_darkness` → "6.2 h"). Fixed a `relFuture`
+  rollover bug ("4d 24h" → "5d"; minute carry too).
+- `getGridOptions`/`getCardSize` bump to **4 rows** when any optional moon sensor
+  is set (room for the chip row); 3 otherwise. New config keys: `moon_azimuth_entity`,
+  `next_full_moon_entity`, `next_dark_night_entity` (+ existing moonrise/moonset/
+  illumination). Editor Moon section extended + hint mentions AstroWeather.
+- Wired smoke (moon azimuth/next-full-moon/deep-sky-darkness fixtures + case) and
+  preview (Sun & Moon demo now passes all sensors). README + docs/cards.md option
+  table, AstroWeather example, sizing note. VERSION 0.17.0 → 0.17.1. Verified in
+  Chromium (azimuth placement, chips, 4-row grid, no console errors); build +
+  smoke green.
+
 ### 2026-07-21 — Sun card: moon-phase view after sunset (v0.17.0)
 - **User:** refactor the sun card to also show moon phases / rise / set, with an
   option to show the moon info after sunset. Kept the daytime sun-path arc as-is

@@ -236,8 +236,12 @@ title: Sun
 accent: amber
 show_moon: true            # after sunset: moon phase + illumination
 moon_entity: sensor.moon   # optional (defaults to sensor.moon)
-# moonrise_entity: sensor.moonrise   # optional
-# moonset_entity: sensor.moonset     # optional
+# Optional (AstroWeather): azimuth positions the moon; plus full-moon / dark-night chips
+# moon_azimuth_entity: sensor.astroweather_moon_azimuth
+# moonrise_entity: sensor.astroweather_moonrise
+# moonset_entity: sensor.astroweather_moonset
+# next_full_moon_entity: sensor.astroweather_moon_next_full_moon
+# next_dark_night_entity: sensor.astroweather_deep_sky_darkness
 ```
 
 ```yaml
