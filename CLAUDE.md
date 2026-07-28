@@ -132,6 +132,35 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Sun card: moon-phase view after sunset (v0.17.0)
+- **User:** refactor the sun card to also show moon phases / rise / set, with an
+  option to show the moon info after sunset. Kept the daytime sun-path arc as-is
+  and added a **night moon view** gated by `show_moon` (default true) + a moon
+  sensor being present.
+- `prism-sun-card` now branches in `_render`: daytime → `_sunView` (the existing
+  arc, extracted verbatim into a method); after sunset (state `below_horizon` /
+  elevation ≤ 0) with `show_moon` on and the moon entity available → `_moonView`.
+  The moon view draws a **moon-phase glyph** via `moonLitPath(cx,cy,r,k)` (outer
+  semicircle on the lit side + a terminator half-ellipse of x-radius
+  `|cos(2πk)|·r`; waxing lights the right), with new-moon = nothing lit and
+  full-moon = full circle special-cased. Shows illumination % (from an optional
+  sensor, else computed `(1-cos2πk)/2`), the phase label, the next sunrise, and a
+  moonrise/moonset subrow when those sensors are configured. `moonInfo()` maps
+  the 8 HA phase names (or a numeric phase) → `{label, k}`.
+- Config adds `show_moon`, `moon_entity` (default `sensor.moon`), `moonrise_entity`,
+  `moonset_entity`, `moon_illumination_entity`. Editor gains a **Moon** section
+  (switch + 4 pickers + hint). `getStubConfig` sets `moon_entity` when
+  `sensor.moon` exists. Moon colours are theme-safe (`#cdd6e5` lit + `--_text-2`
+  outline, `--_surface-2` unlit disk), moon icons use `--_text-2` (not accent).
+- Wired: smoke gains a `sun.night` + `sensor.moon`/moonrise/moonset fixtures and
+  2 cases; preview gains a `sun.after_sunset` + moon mocks and a "Sun & Moon"
+  demo (renders offline, so the showcase picks it up). README table + quick-start,
+  docs/cards.md option table + example. VERSION 0.16.5 → 0.17.0.
+- Verified in real Chromium across all **8 phases**: moon view active at night,
+  correct lit geometry (first/last quarter = half-width, gibbous > half, full =
+  circle, crescents thin), illumination 0→100%, phase labels, moonrise/moonset
+  subrow, zero console errors. `bash build.sh` + `node test/smoke.js` green.
+
 ### 2026-07-21 — Editor icon fields: HA icon-picker dropdown w/ fallback (v0.16.5)
 - **User:** can the visual editor use the icon picker dropdown? Added a shared
   `_iconField(value, onChange, label?)` on `PrismEditor`: uses HA's searchable

@@ -47,7 +47,7 @@ Prism is two things working together:
 | **Wind** | `custom:prism-wind-card` | Wind tile: dominant speed, a flat compass rose with an accent direction arrow, Beaufort descriptor, gusts, and animated flat wind-streak accents that intensify with the wind. Reads a `weather.*` entity or individual sensors. |
 | **Weather** | `custom:prism-weather-card` | Current-conditions tile: big temperature, a flat animated condition icon, feels-like + today's high/low, and humidity / wind / pressure chips. Reads a `weather.*` entity. |
 | **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity **or** the free US National Weather Service API (weather.gov). |
-| **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc (a moon below the horizon at night), the traveled portion filled with the accent, and a live "sets in / rises in" countdown. Reads `sun.sun`. |
+| **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc, the traveled portion filled with the accent, and a live "sets in / rises in" countdown. After sunset it can flip to a moon-phase view (phase, illumination, moonrise/moonset). Reads `sun.sun` (+ optional `sensor.moon`). |
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
 | **Air Quality** | `custom:prism-aqi-card` | AQI tile: a big value coloured by its US EPA category, the category + health advice, and a flat Good→Hazardous scale with a value marker. Reads an AQI sensor. |
@@ -229,10 +229,15 @@ title: UV Index
 
 ```yaml
 # Sun — sunrise/sunset arc with a live countdown. Reads sun.sun.
+# After sunset it can show the moon phase (needs the Moon integration).
 type: custom:prism-sun-card
 entity: sun.sun
 title: Sun
 accent: amber
+show_moon: true            # after sunset: moon phase + illumination
+moon_entity: sensor.moon   # optional (defaults to sensor.moon)
+# moonrise_entity: sensor.moonrise   # optional
+# moonset_entity: sensor.moonset     # optional
 ```
 
 ```yaml
