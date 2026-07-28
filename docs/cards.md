@@ -544,7 +544,7 @@ units: us
 
 Flat **sun-path arc**: a dome of the sky from sunrise to sunset with the sun riding along it, the **traveled portion filled with the accent**, **sunrise/sunset times** at each end, and a live **"sets in / rises in"** countdown in the middle.
 
-Optionally, **after sunset** it flips to a **moon view**: a moon-phase glyph drawn to the current illuminated fraction, the phase name + **illumination %**, the next **sunrise**, and — when their sensors are configured — **moonrise / moonset**.
+Optionally, **after sunset** it flips to a **moon view**: a moon-phase glyph drawn to the current illuminated fraction and **positioned on the sky by the moon's azimuth**, the phase name + **illumination %**, the next **sunrise**, and chips for **moonrise / moonset**, **next full moon**, and **next dark night** when their sensors are configured.
 
 | Key | Type | Default | Notes |
 |-----|------|---------|-------|
@@ -553,10 +553,15 @@ Optionally, **after sunset** it flips to a **moon view**: a moon-phase glyph dra
 | `title` | string | — | Card header. |
 | `accent` | string | `amber` | Colours the traveled arc and the sun. |
 | `show_moon` | bool | `true` | After sunset, show the moon view instead of the resting sun arc. |
-| `moon_entity` | string | `sensor.moon` | Moon-phase sensor (the Moon integration's `sensor.moon`). Its state is a phase name like `waxing_gibbous`, or a numeric phase. |
-| `moonrise_entity` | string | — | Optional sensor with a moonrise timestamp. |
-| `moonset_entity` | string | — | Optional sensor with a moonset timestamp. |
+| `moon_entity` | string | `sensor.moon` | Moon-phase sensor (the Moon integration's `sensor.moon`). State is a phase name like `waxing_gibbous`, or a numeric phase. |
+| `moon_azimuth_entity` | string | — | Optional azimuth sensor (degrees) — positions the moon on the sky (E→S→W maps left→top→right). Also read from an `azimuth`/`moon_azimuth` attribute on the moon sensor. AstroWeather: `moon_azimuth`. |
+| `moonrise_entity` | string | — | Optional moonrise timestamp sensor. |
+| `moonset_entity` | string | — | Optional moonset timestamp sensor. |
+| `next_full_moon_entity` | string | — | Optional timestamp sensor → a "Full in Xd" chip. AstroWeather: `moon_next_full_moon`. |
+| `next_dark_night_entity` | string | — | Optional. A timestamp → "Dark in Xh", or a duration sensor (e.g. AstroWeather `deep_sky_darkness` hours) → "Dark 6.2 h". |
 | `moon_illumination_entity` | string | — | Optional illumination-% sensor. If unset, illumination is computed from the phase. |
+
+The azimuth / next-full-moon / dark-night values are designed to pair with the **[AstroWeather](https://github.com/mawinkler/astroweather)** integration, but any sensor providing those works. When any of the optional moon sensors are set, the tile is one grid row taller to fit the chip row.
 
 Daytime progress uses the next setting as today's sunset and approximates today's sunrise from the next rising. At night, with `show_moon` on and a moon sensor available, the card shows the moon phase; otherwise the arc rests with a moon on the horizon. Tap opens more-info.
 
@@ -577,6 +582,20 @@ show_moon: true
 moon_entity: sensor.moon
 moonrise_entity: sensor.moonrise   # optional
 moonset_entity: sensor.moonset     # optional
+```
+
+```yaml
+# Full moon view with AstroWeather sensors.
+type: custom:prism-sun-card
+entity: sun.sun
+title: Sun & Moon
+accent: amber
+moon_entity: sensor.astroweather_moon_phase
+moon_azimuth_entity: sensor.astroweather_moon_azimuth
+moonrise_entity: sensor.astroweather_moonrise
+moonset_entity: sensor.astroweather_moonset
+next_full_moon_entity: sensor.astroweather_moon_next_full_moon
+next_dark_night_entity: sensor.astroweather_deep_sky_darkness
 ```
 
 ---
@@ -730,7 +749,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Wind | 3 | 6 |
 | Weather | 3 | 6 |
 | Forecast | 3 | 12 |
-| Sun | 3 | 6 |
+| Sun | 3 (4 with moon chips) | 6 |
 | UV | 3 | 6 |
 | Rain | 3 | 6 |
 | Air Quality | 3 | 6 |
