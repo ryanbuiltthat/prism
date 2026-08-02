@@ -20,9 +20,11 @@ Prism is two things working together:
 > hierarchy (one dominant value per tile), and **never a bare number** — every
 > card carries context via a trend, a sparkline, or severity bands.
 
+<!-- Absolute raw URLs so the images also render on the HACS info page, which
+     (unlike GitHub) does not resolve README-relative image paths. -->
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/preview-dark.png">
-  <img alt="Prism cards in a Home Assistant dashboard — energy, gauges, sparklines, entities, weather, and more" src="docs/assets/preview-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ryanbuiltthat/prism/main/docs/assets/preview-dark.png">
+  <img alt="Prism cards in a Home Assistant dashboard — energy, gauges, sparklines, entities, weather, and more" src="https://raw.githubusercontent.com/ryanbuiltthat/prism/main/docs/assets/preview-light.png">
 </picture>
 
 ---
