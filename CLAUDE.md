@@ -132,6 +132,18 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-07-21 — Rain card: wave alignment fix (v0.17.2)
+- **User (screenshot):** the rain gauge's animated wave sat too low (peaks didn't
+  clear the waterline) and the water spilled ~1px over the tube border.
+- Border: the `rainclip` clip rect matched the tube's rect path (x=IX, w=IW), but
+  the tube's `stroke-width:2` is centred, so its inner edge is 1px inside — water
+  covered that inner 1px of border. Inset the clip 1px all round (`IX+1, IY+1,
+  IW-2, IH-2`, rx 12→11) so water stays inside the border.
+- Wave: raised the wave's top line 4→1 (crests -1→-4) and nudged the water-body
+  top 3→4, so the peaks now clear the flat waterline by ~8px (was ~4). Verified
+  in Chromium at low + mid fill: distinct peaks above the surface, water fully
+  inside the border, drops still fall. VERSION 0.17.1 → 0.17.2; build + smoke green.
+
 ### 2026-07-21 — Sun card: AstroWeather moon data + azimuth positioning (v0.17.1)
 - **User:** add "next full moon", "next dark night", and make the moon graphic
   reflect the moon azimuth — data from the AstroWeather integration
