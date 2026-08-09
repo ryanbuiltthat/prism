@@ -172,15 +172,15 @@
         <div class="prism-card">
           ${P.titleHead(c.title)}
           <div class="content">
-            <svg class="gauge" viewBox="0 0 62 120" role="button" tabindex="0" aria-label="${P.esc(name)}">
-              <defs><clipPath id="rainclip"><rect x="${IX}" y="${IY}" width="${IW}" height="${IH}" rx="12"/></clipPath></defs>
+            <svg class="gauge" viewBox="0 0 60 120" role="button" tabindex="0" aria-label="${P.esc(name)}">
+              <defs><clipPath id="rainclip"><rect x="${IX + 1}" y="${IY + 1}" width="${IW - 2}" height="${IH - 2}" rx="11"/></clipPath></defs>
               <rect class="tube" x="${IX}" y="${IY}" width="${IW}" height="${IH}" rx="12"/>
               ${ticks}
               <g clip-path="url(#rainclip)">
                 <g transform="translate(0 ${topY.toFixed(1)})">
-                  <rect class="water-body" x="-8" y="3" width="76" height="${IH + 12}"/>
+                  <rect class="water-body" x="-8" y="4" width="76" height="${IH + 12}"/>
                   <g class="wave-anim">
-                    <path class="wave" d="M-16 4 q4 -5 8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 L64 4 L64 12 L-16 12 Z"/>
+                    <path class="wave" d="M-16 1 q4 -5 8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 t8 0 L64 1 L64 12 L-16 12 Z"/>
                   </g>
                 </g>
               </g>
