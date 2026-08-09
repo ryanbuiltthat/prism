@@ -149,7 +149,7 @@
           svg.gauge { width:60px; height:120px; flex:none; overflow:visible; }
           .tube { fill:var(--_surface-2); stroke:var(--_border); stroke-width:2; }
           .water-body { fill:${accent}; opacity:.9; }
-          .wave { fill:${accent}; }
+          .wave { fill:${accent};}
           .drop { opacity:0; ${animate ? 'animation-name:rain-drop;animation-timing-function:linear;animation-iteration-count:infinite;' : ''} }
           .wave-anim { ${animate ? 'animation:rain-wave 2.4s linear infinite;' : ''} }
           @keyframes rain-drop { 0%{transform:translateY(0);opacity:0} 12%{opacity:1} 100%{transform:translateY(${(IH).toFixed(0)}px);opacity:0} }
@@ -172,7 +172,7 @@
         <div class="prism-card">
           ${P.titleHead(c.title)}
           <div class="content">
-            <svg class="gauge" viewBox="0 0 60 120" role="button" tabindex="0" aria-label="${P.esc(name)}">
+            <svg class="gauge" viewBox="0 0 62 120" role="button" tabindex="0" aria-label="${P.esc(name)}">
               <defs><clipPath id="rainclip"><rect x="${IX}" y="${IY}" width="${IW}" height="${IH}" rx="12"/></clipPath></defs>
               <rect class="tube" x="${IX}" y="${IY}" width="${IW}" height="${IH}" rx="12"/>
               ${ticks}
