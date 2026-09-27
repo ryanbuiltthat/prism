@@ -62,6 +62,10 @@ Prism:
         prism-good: "#3aa76d"
         prism-warn: "#e0922e"
         prism-bad: "#c64b4b"
+        prism-purple: "#8a6fd6"
+        # Terrain (creek card bank cross-section)
+        prism-earth: "#d8cfbd"
+        prism-earth-edge: "#c2b69e"
         # Sidebar / header flatten
         app-header-background-color: "#ffffff"
         app-header-text-color: "#15181a"
@@ -97,6 +101,9 @@ Prism:
         prism-good: "#43b97b"
         prism-warn: "#e6a03f"
         prism-bad: "#d76161"
+        prism-purple: "#9683e0"
+        prism-earth: "#3a342b"
+        prism-earth-edge: "#4c4438"
         app-header-background-color: "#16191c"
         app-header-text-color: "#eef1f3"
         sidebar-background-color: "#121619"

@@ -51,6 +51,7 @@ Prism is two things working together:
 | **Forecast** | `custom:prism-forecast-card` | Daily or hourly forecast strip: a flat condition icon per period, high/low temps, and precipitation-chance chips. Reads a `weather.*` entity **or** the free US National Weather Service API (weather.gov). |
 | **Sun** | `custom:prism-sun-card` | Sun-path arc: sunrise/sunset times, the sun riding its arc, the traveled portion filled with the accent, and a live "sets in / rises in" countdown. After sunset it can flip to a moon-phase view (phase, illumination, moonrise/moonset). Reads `sun.sun` (+ optional `sensor.moon`). |
 | **UV** | `custom:prism-uv-card` | UV-index tile: a big value coloured by its WHO risk band, the category + sun-protection advice, and a flat UV-ramp scale (green→purple) with a value marker. Reads a UV sensor or a `weather.*` `uv_index`. |
+| **Creek stage** | `custom:prism-creek-card` | Creek-bank cross-section: water rises and falls with a stage sensor and spills over the banks at the crest, with dashed Action / Flood / Major lines, a status pill, trend per hour (rising = red), 24h peak, and last-updated. Includes a `custom:prism-creek-stage-feature` strip for tile cards. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
 | **Air Quality** | `custom:prism-aqi-card` | AQI tile: a big value coloured by its US EPA category, the category + health advice, and a flat Good→Hazardous scale with a value marker. Reads an AQI sensor. |
 | **Lightning** | `custom:prism-lightning-card` | Lightning tile: strike count as the dominant value, last-strike time + distance for context, and an animated flat storm cloud with a flickering bolt. |
@@ -179,6 +180,17 @@ units: us              # °F/mph, or: si for °C/km·h
 # latitude: 40.7128
 # longitude: -74.006
 accent: blue
+```
+
+```yaml
+# Creek stage — water level against the bank, with flood-stage lines.
+type: custom:prism-creek-card
+entity: sensor.mill_creek_stage   # stage in ft or m
+title: Creek Stage
+bed: 0          # stage when the channel is empty
+bank: 3.2       # bank crest — water spills over exactly here
+action: 2       # optional warning stage
+major: 4        # optional major flood stage
 ```
 
 ```yaml
