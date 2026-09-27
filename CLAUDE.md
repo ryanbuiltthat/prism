@@ -132,6 +132,14 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-09-27 — Creek stage card + tile feature (v0.18.0)
+- **User:** build the creek-stage card from a design handoff (two SVGs + a reference updater, drafted in rate-of-rise `dashboards/creek_guage_card/src/`). Every value is configurable in the UI, and the handoff's Flow chip is dropped.
+- Added **`src/prism-creek-card.js`**. It holds `prism-creek-card` (a 400×266 cross-section; the SVG is built once per config and then patched in place, so the wave keeps animating and the level eases between readings) and **`prism-creek-stage-feature`** (a 42px tile-card feature registered via `window.customCardFeatures`, supporting both `isSupported` and the legacy `supported`).
+- Geometry is piecewise on the bank crest (bed→bank maps y 204→121, bank→max maps 121→92), per the handoff. Flood status falls back to `bank`. The flood line is hidden when it equals `bank`. `max` defaults to 40% above the crest and grows to fit `major`. Thresholds outside [bed, max] are hidden.
+- Trend and peak come from `P.fetchHistory` via a small `HistoryWindow` cache (5-min TTL). The trend value is taken at the window start, since history is piecewise constant. Pill, threshold labels, and peak chip are sized with `getComputedTextLength()` in `_fit()`, which re-runs on ResizeObserver and `fonts.ready`, with a char-count estimate before layout. clipPath ids get a per-instance suffix.
+- Theme: `prism-purple`, `prism-earth`, and `prism-earth-edge` (light and dark) added to the flat anchors. Smoke gains creek fixtures, 3 card cases, 8 helper checks (geometry, defaults, bands, trend, peak), and a feature check; the shim's `classList` gained `toggle`. Preview gains a rising-creek demo. VERSION 0.17.2 → 0.18.0.
+- Verified in Chromium (Playwright, ad-hoc page): Normal / Action / Flood / Major / over-bank / unavailable / metres states in light and dark, feature strip, editor fields + `config-changed`, zero console errors. `bash build.sh` and `node test/smoke.js` are green.
+
 ### 2026-07-21 — Rain card: wave alignment fix (v0.17.2)
 - **User (screenshot):** the rain gauge's animated wave sat too low (peaks didn't
   clear the waterline) and the water spilled ~1px over the tube border.

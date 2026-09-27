@@ -11,7 +11,7 @@ const path = require('path');
 function makeEl() {
   const el = {
     style: { setProperty() {}, display: '' },
-    classList: { add() {}, contains() { return false; } },
+    classList: { add() {}, toggle() {}, contains() { return false; } },
     dataset: {},
     attributes: {},
     children: [],
@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-weather-anim.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js', 'src/prism-lightning-card.js', 'src/prism-lux-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-weather-anim.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js', 'src/prism-lightning-card.js', 'src/prism-lux-card.js', 'src/prism-creek-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -86,6 +86,8 @@ const hass = {
     'sensor.lightning_distance': { state: '8', attributes: { friendly_name: 'Lightning Distance', unit_of_measurement: 'km' } },
     'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
     'sensor.illuminance': { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
+    'sensor.creek_stage': { state: '2.4', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 300000).toISOString() },
+    'sensor.creek_offline': { state: 'unavailable', attributes: { friendly_name: 'Creek Offline', unit_of_measurement: 'ft' } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -96,6 +98,9 @@ const hass = {
         { datetime: new Date(now + 86400000).toISOString(), condition: 'rainy', temperature: 16, templow: 11, precipitation_probability: 80 },
         { datetime: new Date(now + 2 * 86400000).toISOString(), condition: 'partlycloudy', temperature: 19, templow: 8 },
       ] } } });
+    }
+    if (msg && msg.entity_ids && msg.entity_ids[0] === 'sensor.creek_stage') {
+      return Promise.resolve({ 'sensor.creek_stage': Array.from({ length: 24 }, (_, i) => ({ s: (1.2 + i * 0.05).toFixed(2), lu: now / 1000 - (24 - i) * 600 })) });
     }
     return Promise.resolve({ 'sensor.x': hist });
   },
@@ -179,6 +184,9 @@ check('parses compact history', async () => {});
     ['prism-lightning-card', { count_entity: 'sensor.lightning_count', animate: false }],
     ['prism-lux-card', { entity: 'sensor.illuminance', title: 'Light' }],
     ['prism-lux-card', { entity: 'sensor.x', animate: false }],
+    ['prism-creek-card', { entity: 'sensor.creek_stage', title: 'Mill Creek', bed: 0, bank: 3.2, action: 2, flood: 3.2, major: 4 }],
+    ['prism-creek-card', { entity: 'sensor.creek_stage', unit: 'ft', decimals: 2, show_trend: false, show_peak: false, show_updated: false, animate: false, accent: 'teal' }],
+    ['prism-creek-card', { entity: 'sensor.creek_offline', flood: 3 }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {
@@ -192,6 +200,49 @@ check('parses compact history', async () => {});
       if (!html.includes('prism-card')) throw new Error('render produced no card markup');
     });
   }
+
+  console.log('Creek stage helpers');
+  const K = P.creek;
+  const prof = K.profile({ bed: 0, bank: 3.2, action: 2, flood: 3.2 });
+  check('creek bed/bank/top map to the drawn geometry', () => {
+    const y = (s) => Math.round(K.stageToY(s, prof, K.G_CARD) * 10) / 10;
+    if (y(0) !== 204 || y(3.2) !== 121 || y(prof.max) !== 92) throw new Error(`${y(0)} ${y(3.2)} ${y(prof.max)}`);
+    if (y(-5) !== 204 || y(99) !== 92) throw new Error('not clamped');
+  });
+  check('creek max defaults to bank x 1.4', () => { if (Math.abs(prof.max - 4.48) > 1e-9) throw new Error(prof.max); });
+  check('creek bank defaults to flood', () => { if (K.profile({ flood: 5 }).bank !== 5) throw new Error('bad'); });
+  check('creek max grows to fit major', () => { const q = K.profile({ bank: 3, major: 5 }); if (!(q.max > 5)) throw new Error(q.max); });
+  check('creek bands', () => {
+    const got = [1, 2.5, 3.3, 4.2, NaN].map((s) => K.band(s, K.profile({ bank: 3.2, action: 2, major: 4 })).key).join();
+    if (got !== 'normal,action,flood,major,unavailable') throw new Error(got);
+  });
+  check('creek trend is change per hour over the window', () => {
+    const n = 1e12, pts = [{ t: n - 7200000, v: 1 }, { t: n - 1800000, v: 1.5 }];
+    const r = K.trendRate(pts, 2, 1, n); // value at n-1h is 1 → +1 ft/h
+    if (Math.abs(r - 1) > 1e-9) throw new Error(r);
+    if (K.trendRate([{ t: n - 60000, v: 1 }], 2, 1, n) !== null) throw new Error('should need history');
+  });
+  check('creek trend text', () => {
+    if (K.trendText(0.001, 'ft', 1) !== '→ steady') throw new Error('steady');
+    if (K.trendText(0.02, 'ft', 1) !== '▲ 0.02 ft/h') throw new Error(K.trendText(0.02, 'ft', 1));
+    if (K.trendText(-0.3, 'ft', 1) !== '▼ 0.3 ft/h') throw new Error(K.trendText(-0.3, 'ft', 1));
+  });
+  check('creek peak includes carried-in state', () => {
+    const n = 1e12, pts = [{ t: n - 30 * 3600000, v: 5 }, { t: n - 3600000, v: 2 }];
+    if (K.peakOver(pts, 1, 24, n) !== 5) throw new Error('carried-in');
+    if (K.peakOver([{ t: n - 3600000, v: 2 }], 3, 24, n) !== 3) throw new Error('current');
+  });
+  check('creek stage feature renders + registers', () => {
+    const F = customElements.get('prism-creek-stage-feature');
+    const el = new F();
+    el.setConfig({ type: 'custom:prism-creek-stage-feature', bank: 3.2, action: 2 });
+    el.hass = hass;
+    el.context = { entity_id: 'sensor.creek_stage' };
+    if (!el.shadowRoot._html.includes('class="feat"')) throw new Error('no feature markup');
+    const reg = window.customCardFeatures.find((f) => f.type === 'prism-creek-stage-feature');
+    if (!reg || !reg.isSupported(hass, { entity_id: 'sensor.creek_stage' })) throw new Error('not supported');
+    if (reg.isSupported(hass, { entity_id: 'sensor.x' })) throw new Error('% sensor should not be supported');
+  });
 
   check('missing entity throws', () => {
     const Ctor = customElements.get('prism-stat-card');

@@ -81,6 +81,8 @@
       'sensor.cpu_temperature': walk(58, 8, 120),
       'sensor.energy_today': walk(12, 1.2, 120),
       'sensor.humidity': walk(52, 4, 120),
+      // Creek rising ~0.1 ft/h toward the action stage.
+      'sensor.creek_stage': Array.from({ length: 120 }, (_, i) => ({ s: (1.4 + i * 0.0085 + Math.sin(i / 6) * 0.02).toFixed(2), lu: (now / 1000) - (120 - i) * 300 })),
     };
     const hass = {
       themes: { darkMode: false },
@@ -130,6 +132,7 @@
         'sensor.lightning_dist': { state: '8', attributes: { friendly_name: 'Lightning Distance', unit_of_measurement: 'km' } },
         'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
         'sensor.illuminance':    { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
+        'sensor.creek_stage':    { state: '2.42', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 4 * 60000).toISOString() },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -228,6 +231,7 @@
       { type: 'prism-aqi-card', cfg: { title: 'Air Quality', entity: 'sensor.aqi' } },
       { type: 'prism-lightning-card', cfg: { title: 'Lightning', count_entity: 'sensor.lightning_count', distance_entity: 'sensor.lightning_dist', time_entity: 'sensor.lightning_last' } },
       { type: 'prism-lux-card', cfg: { title: 'Illuminance', entity: 'sensor.illuminance' } },
+      { type: 'prism-creek-card', cfg: { title: 'Mill Creek', entity: 'sensor.creek_stage', bed: 0, bank: 3.2, action: 2, flood: 3.2, major: 4 } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

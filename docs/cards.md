@@ -623,6 +623,55 @@ title: UV Index
 
 ---
 
+## `custom:prism-creek-card`
+
+**Creek-stage cross-section.** The water in a drawn creek channel rises and falls with a stage sensor. At the bank crest it spills over onto the land, so the drawing always shows how close the creek is to flooding. Dashed **Action / Flood / Major** lines mark the thresholds, and a status pill names the current band (Normal / Action / Flood / Major). The trend is the change per hour over recorder history, and its colours are inverted because rising water is worse: rising is red, falling is green. Chips show the 24h peak and when the sensor last updated.
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** Stage sensor (ft or m). |
+| `title` | string | `Creek Stage` | Header text. |
+| `unit` | string | sensor unit | Unit override. |
+| `decimals` | number | `1` | Decimals for the stage, labels, and peak. |
+| `bed` | number | `0` | Stage at the channel bed (empty creek). |
+| `bank` | number | `flood` | Bank crest. Water spills over the banks exactly here. |
+| `max` | number | 40% above the crest | Top of the drawing (`bank × 1.4` for a zero bed). Raised automatically to fit `major`. |
+| `action` | number | — | Warning stage. Leave blank to hide it. |
+| `flood` | number | — | Flood stage. Flood *status* falls back to `bank`. The line is hidden when it equals `bank`. |
+| `major` | number | — | Major flood stage. |
+| `trend_hours` | number | `1` | Window for the trend (change per hour). |
+| `peak_hours` | number | `24` | Window for the peak chip. |
+| `show_trend` / `show_peak` / `show_updated` | bool | `true` | Toggle the trend, peak chip, and last-updated text. |
+| `animate` | bool | `true` | Wave motion and level easing (respects `prefers-reduced-motion`). |
+| `accent` | string | `blue` | Water colour. Use `theme` for `--prism-accent`. |
+
+All stages are in the sensor's unit. Every option is editable in the visual editor. Tap the card for more-info. The drawing uses two terrain tokens, `--prism-earth` and `--prism-earth-edge` (in `themes/prism.yaml`), plus `--prism-purple` for the Major band. Each has a built-in light/dark fallback.
+
+```yaml
+type: custom:prism-creek-card
+entity: sensor.mill_creek_stage
+title: Mill Creek
+bed: 0
+bank: 3.2
+action: 2
+major: 4
+```
+
+### Card feature: `custom:prism-creek-stage-feature`
+
+A compact 42px strip for **under a tile card**. It shows a mini cross-section, the stage, the status band, and the trend. It reads the tile's entity and is offered for sensors in ft / m / in / cm. It takes the same `bed`, `bank`, `max`, `action`, `flood`, `major`, `trend_hours`, `show_trend`, `decimals`, `unit`, `animate`, and `accent` keys.
+
+```yaml
+type: tile
+entity: sensor.mill_creek_stage
+features:
+  - type: custom:prism-creek-stage-feature
+    bank: 3.2
+    action: 2
+```
+
+---
+
 ## `custom:prism-rain-card`
 
 Animated flat **rain-gauge tile**: a measuring cylinder **fills with the current rain-event total**, and raindrops **fall into it at a rate set by the intensity** (rain rate). The event amount is the dominant value, with the intensity + a **rain-rate descriptor** (Light / Moderate / Heavy / Violent) beside it, and chips for the hourly / 24-hour / weekly / monthly totals.
@@ -751,6 +800,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Forecast | 3 | 12 |
 | Sun | 3 (4 with moon chips) | 6 |
 | UV | 3 | 6 |
+| Creek stage | auto | 12 |
 | Rain | 3 | 6 |
 | Air Quality | 3 | 6 |
 | Lightning | 3 | 6 |
