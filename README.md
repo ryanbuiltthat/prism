@@ -34,10 +34,10 @@ Prism is two things working together:
 | Card | `type` | What it's for |
 |------|--------|---------------|
 | **Stat** | `custom:prism-stat-card` | KPI tile: dominant value, label, unit, trend delta over a window, optional inline sparkline. |
-| **Gauge** | `custom:prism-gauge-card` | Flat 270 degree gauge with configurable severity bands. `fill` or `bands`+needle styles. |
+| **Gauge** | `custom:prism-gauge-card` | Flat 270 degree gauge with configurable severity bands. `fill` or `bands`+needle styles. Min/max can come from the entity's attributes. |
 | **Sparkline** | `custom:prism-sparkline-card` | History mini-graph (line/area) with current value + optional min/max markers. |
 | **Power** | `custom:prism-power-card` | Live power tile: dominant value, load bar, window peak, optional energy total, and a `grid` mode for signed import/export sensors. |
-| **Linear Gauge** | `custom:prism-linear-gauge-card` | Horizontal gauge — one value on a linear scale with severity bands (`fill` bar or band strip + marker). |
+| **Linear Gauge** | `custom:prism-linear-gauge-card` | Horizontal gauge — one value on a linear scale with severity bands (`fill` bar or band strip + marker). Min/max can come from the entity's attributes. |
 | **Bar** | `custom:prism-bar-card` | Horizontal bar chart comparing several entities on a shared scale, with per-bar colour, severity bands, and sorting. |
 | **Entities** | `custom:prism-entities-card` | Flat entity list: icon, name, secondary line, and a right-aligned value or a flat toggle for actionable entities. |
 | **Filter** | `custom:prism-filter-card` | *Smart* dynamic list: pick a domain + condition (e.g. "lights that are on") and the card fills itself in and re-populates as state changes. `list` or `chips` layout, optional group-by-area sub-headers, live match count, empty state, inline toggles. |

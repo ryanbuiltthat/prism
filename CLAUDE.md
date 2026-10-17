@@ -132,6 +132,13 @@ showcase updates itself. (Manual local regen still works too; the sandbox needs
 
 Newest first. One short entry per working session: what shipped + open threads.
 
+### 2026-10-17 — Gauges: range from attributes + percentage bands (issue #39, ships in v0.19.0)
+- **Issue #39 (DrFlamingoo):** take a gauge's min/max from the sensor's attributes, and make the bands percentages so they follow that range. Applied to both `prism-gauge-card` and `prism-linear-gauge-card`.
+- New shared helpers: `P.rangeBound` / `P.gaugeRange` and `P.resolveSegments`. Each end of the range resolves in this order: `min_attribute`/`max_attribute` when numeric → `min`/`max` config → the entity's own range attrs (`min`/`max` on input_number/number, `minimum`/`maximum` on counter) → 0/100. `setConfig` and the stubs no longer bake in `min: 0, max: 100`, which would have hidden the auto attrs. A segment `from` is a number or `"60%"` of the range.
+- New `PrismEditor._attributeField`: a dropdown of the entity's numeric attributes (text field when the entity is unknown). The gauge editors re-render on entity change so the list refreshes.
+- Smoke: tank/input_number/counter fixtures, 2 cases, 3 checks covering precedence, the max label, and % bands. Preview: water-tank linear gauge (`max_attribute: capacity`, % bands). Docs and README rows updated.
+- Verified with the **chrome-devtools MCP** on preview.html: tank 312/500 → 62.4% fill; a radial gauge with both attrs + % bands spans 50–500 with correct band colours; the editor dropdown lists `capacity (500)` / `low_limit (50)` and fires `config-changed`; no console errors.
+
 ### 2026-10-17 — Air purifier card (v0.19.0)
 - **User:** a stylized card for their VeSync Levoit Core 600S (LAP-C601S-WUS) showing air quality, PM2.5, filter life, an on/off toggle, and fan-speed control. In their HA it's `fan.air_cleaner` (Basement; 4 speeds via `percentage_step` 25; presets auto/sleep) plus `Air Cleaner PM2.5` (device_class pm25).
 - Added **`src/prism-purifier-card.js`** (`prism-purifier-card`). The hero is a top-down disc: a ring in Levoit's AQ colours (blue/green/orange/red = Excellent→Poor) with PM2.5 dominant inside, plus a 40-tick outlet grille that spins faster with speed (10 − 8·level/steps s; sleep 16s, auto 7s, off still). The side column holds filter life (bar + Good / Replace soon ≤`filter_warn` / Replace now ≤5) and a 4-step AQ scale. Controls are a power chip (tap toggle, hold more-info), stepped speed buttons (`fan.set_percentage`, optimistic), and preset pills (`fan.set_preset_mode`, `manual` hidden).

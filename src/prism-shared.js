@@ -82,6 +82,53 @@
     return hass?.states?.[entityId]?.attributes?.friendly_name ?? entityId ?? '';
   }
 
+  // Range attributes an entity may already expose: input_number / number use
+  // `min`/`max`, counter uses `minimum`/`maximum`.
+  const AUTO_RANGE_ATTRS = { min: ['min', 'minimum'], max: ['max', 'maximum'] };
+
+  // One end of a gauge range (`key` is 'min' or 'max'). Precedence:
+  //   1. `<key>_attribute` — a named attribute on cfg.entity, when numeric
+  //   2. `<key>` — the configured number
+  //   3. a conventional range attribute the entity exposes (AUTO_RANGE_ATTRS)
+  //   4. `fallback`
+  function rangeBound(hass, cfg, key, fallback) {
+    const attrs = hass?.states?.[cfg.entity]?.attributes || {};
+    const attrNum = (name) => {
+      const v = parseFloat(attrs[name]);
+      return Number.isFinite(v) ? v : null;
+    };
+    const named = cfg[`${key}_attribute`] ? attrNum(cfg[`${key}_attribute`]) : null;
+    if (named != null) return named;
+    const set = cfg[key];
+    if (set != null && set !== '' && Number.isFinite(Number(set))) return Number(set);
+    for (const a of AUTO_RANGE_ATTRS[key] || []) {
+      const v = attrNum(a);
+      if (v != null) return v;
+    }
+    return fallback;
+  }
+
+  // { min, max } for a gauge card config (defaults 0–100).
+  function gaugeRange(hass, cfg) {
+    return { min: rangeBound(hass, cfg, 'min', 0), max: rangeBound(hass, cfg, 'max', 100) };
+  }
+
+  // Severity bands for a gauge, sorted, with each `from` resolved to an
+  // absolute value. A `from` may be a number (absolute) or a percentage of the
+  // min→max range ("60%"), so bands follow a range that comes from attributes.
+  function resolveSegments(segments, min, max) {
+    if (!Array.isArray(segments)) return [];
+    const at = (f) => {
+      const t = String(f ?? '').trim();
+      if (t.endsWith('%')) return min + (parseFloat(t) / 100) * (max - min);
+      return t === '' ? NaN : Number(t);
+    };
+    return segments
+      .map((s) => ({ ...s, from: at(s && s.from) }))
+      .filter((s) => Number.isFinite(s.from))
+      .sort((a, b) => a.from - b.from);
+  }
+
   // ── Shared token stylesheet ───────────────────────────────────────
   // Injected into every card's shadow root. Each token falls back through
   // the Prism theme token → native HA token → hard default, so cards look
@@ -525,6 +572,19 @@
       return this._tf(label + ' (mdi:…)', value, onChange);
     }
 
+    // Attribute picker for `entityId`: a dropdown of its numeric attributes
+    // (the current value is kept even if the entity no longer reports it),
+    // or a plain text field when the entity isn't known yet.
+    _attributeField(label, entityId, value, onChange) {
+      const attrs = this._hass?.states?.[entityId]?.attributes;
+      if (!attrs) return this._tf(label, value, onChange);
+      const names = Object.keys(attrs).filter((k) => Number.isFinite(parseFloat(attrs[k])) && typeof attrs[k] !== 'boolean');
+      if (value && !names.includes(value)) names.unshift(value);
+      const opts = [{ value: '', label: '— none —' },
+        ...names.map((k) => ({ value: k, label: attrs[k] != null ? `${k} (${attrs[k]})` : k }))];
+      return this._select(label, opts, value ?? '', onChange);
+    }
+
     _select(label, options, value, onChange) {
       const wrap = document.createElement('div');
       wrap.className = 'field';
@@ -763,6 +823,9 @@
     resolveAccent,
     unitOf,
     friendlyName,
+    rangeBound,
+    gaugeRange,
+    resolveSegments,
     fetchHistory,
     downsample,
     sparklinePath,

@@ -88,6 +88,9 @@ const hass = {
     'sensor.illuminance': { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
     'sensor.creek_stage': { state: '2.4', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 300000).toISOString() },
     'sensor.creek_offline': { state: 'unavailable', attributes: { friendly_name: 'Creek Offline', unit_of_measurement: 'ft' } },
+    'input_number.target': { state: '42', attributes: { friendly_name: 'Target', min: 10, max: 60, step: 1 } },
+    'counter.cups': { state: '3', attributes: { friendly_name: 'Cups', minimum: 0, maximum: 8 } },
+    'sensor.tank': { state: '312', attributes: { friendly_name: 'Tank', unit_of_measurement: 'L', capacity: 500, low_limit: '50', note: 'n/a' } },
     'fan.air_cleaner': { state: 'on', attributes: { friendly_name: 'Air Cleaner', percentage: 25, percentage_step: 25, preset_mode: null, preset_modes: ['auto', 'sleep'] } },
     'sensor.air_cleaner_air_quality': { state: 'excellent', attributes: { friendly_name: 'Air Cleaner Air Quality' } },
     'sensor.air_cleaner_pm2_5': { state: '1', attributes: { friendly_name: 'Air Cleaner PM2.5', unit_of_measurement: 'µg/m³', device_class: 'pm25' } },
@@ -193,6 +196,8 @@ check('parses compact history', async () => {});
     ['prism-creek-card', { entity: 'sensor.creek_stage', title: 'Mill Creek', bed: 0, bank: 3.2, action: 2, flood: 3.2, major: 4 }],
     ['prism-creek-card', { entity: 'sensor.creek_stage', unit: 'ft', decimals: 2, show_trend: false, show_peak: false, show_updated: false, animate: false, accent: 'teal' }],
     ['prism-creek-card', { entity: 'sensor.creek_offline', flood: 3 }],
+    ['prism-gauge-card', { entity: 'sensor.tank', min_attribute: 'low_limit', max_attribute: 'capacity' }],
+    ['prism-linear-gauge-card', { entity: 'input_number.target' }],
     ['prism-purifier-card', { entity: 'fan.air_cleaner', title: 'Basement' }],
     ['prism-purifier-card', { entity: 'fan.purifier_auto', pm25_entity: 'sensor.air_cleaner_pm2_5', filter_entity: 'sensor.air_cleaner_filter_lifetime', accent: 'teal', animate: false, show_presets: false }],
     ['prism-purifier-card', { entity: 'fan.purifier_off' }],
@@ -251,6 +256,35 @@ check('parses compact history', async () => {});
     const reg = window.customCardFeatures.find((f) => f.type === 'prism-creek-stage-feature');
     if (!reg || !reg.isSupported(hass, { entity_id: 'sensor.creek_stage' })) throw new Error('not supported');
     if (reg.isSupported(hass, { entity_id: 'sensor.x' })) throw new Error('% sensor should not be supported');
+  });
+
+  console.log('Gauge range');
+  check('gauge range: attribute → config → entity range attrs → default', () => {
+    const r = (cfg) => { const g = P.gaugeRange(hass, cfg); return `${g.min}-${g.max}`; };
+    const got = [
+      r({ entity: 'sensor.tank', min_attribute: 'low_limit', max_attribute: 'capacity' }), // named attrs (string attr parsed)
+      r({ entity: 'sensor.tank', max_attribute: 'note', max: 450 }),                       // non-numeric attr → config fallback
+      r({ entity: 'sensor.tank', max_attribute: 'missing' }),                              // missing attr, no config → default
+      r({ entity: 'input_number.target' }),                                                // auto min/max
+      r({ entity: 'input_number.target', min: 0 }),                                        // config beats auto
+      r({ entity: 'counter.cups' }),                                                       // auto minimum/maximum
+      r({ entity: 'sensor.x' }),                                                           // defaults
+      r({ entity: 'sensor.gone', min: 5, max: '20' }),                                     // missing entity, string config
+    ].join(' ');
+    if (got !== '50-500 0-450 0-100 10-60 0-60 0-8 0-100 5-20') throw new Error(got);
+  });
+  check('gauge marker uses the attribute range', () => {
+    const el = new (customElements.get('prism-gauge-card'))();
+    el.setConfig({ entity: 'sensor.tank', max_attribute: 'capacity' });
+    el.hass = hass;
+    if (!el.shadowRoot._html.includes('>500</text>')) throw new Error('max label not 500');
+  });
+
+  check('gauge bands: absolute and percentage-of-range', () => {
+    const segs = P.resolveSegments([{ from: '50%', color: 'b' }, { from: 0, color: 'a' }, { from: '90%', color: 'c' }, { from: 'x', color: 'bad' }, { color: 'none' }], 10, 60);
+    const got = segs.map((s) => `${s.color}@${s.from}`).join(' ');
+    if (got !== 'a@0 b@35 c@55') throw new Error(got);
+    if (P.resolveSegments(undefined, 0, 100).length !== 0) throw new Error('undefined segments');
   });
 
   console.log('Purifier helpers');

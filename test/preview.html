@@ -133,6 +133,7 @@
         'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
         'sensor.illuminance':    { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
         'sensor.creek_stage':    { state: '2.42', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 4 * 60000).toISOString() },
+        'sensor.water_tank':     { state: '312', attributes: { friendly_name: 'Water Tank', unit_of_measurement: 'L', capacity: 500, low_limit: 50 } },
         'fan.air_cleaner':       { state: 'on', attributes: { friendly_name: 'Air Cleaner', percentage: 50, percentage_step: 25, preset_mode: null, preset_modes: ['auto', 'sleep'] } },
         'sensor.air_cleaner_air_quality':    { state: 'good', attributes: { friendly_name: 'Air Cleaner Air Quality' } },
         'sensor.air_cleaner_pm2_5':          { state: '14', attributes: { friendly_name: 'Air Cleaner PM2.5', unit_of_measurement: 'µg/m³', device_class: 'pm25' } },
@@ -208,6 +209,7 @@
       { type: 'prism-power-card', cfg: { entity: 'sensor.house_power', icon: 'mdi:home-lightning-bolt', mode: 'load', hours: 3, peak: true, sparkline: true, energy_entity: 'sensor.energy_today', energy_label: 'Today', accent: 'amber' } },
       { type: 'prism-power-card', cfg: { entity: 'sensor.grid_net', icon: 'mdi:transmission-tower', mode: 'grid', hours: 3, peak: true, sparkline: true, accent: 'teal' } },
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.humidity', name: 'Humidity', icon: 'mdi:water-percent', min: 0, max: 100, style: 'fill', segments: [{from:0,color:'amber'},{from:35,color:'green'},{from:65,color:'blue'}] } },
+      { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.water_tank', icon: 'mdi:water', max_attribute: 'capacity', style: 'fill', segments: [{from:'0%',color:'red'},{from:'20%',color:'amber'},{from:'40%',color:'blue'}] } },
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.cpu_temperature', name: 'CPU Temp', min: 20, max: 90, style: 'bands', segments: [{from:20,color:'green'},{from:65,color:'amber'},{from:80,color:'red'}] } },
       { type: 'prism-bar-card', cfg: { title: 'Power by circuit', entities: ['sensor.circuit_ev','sensor.circuit_hvac','sensor.circuit_kitchen','sensor.circuit_lights'], unit: 'W', sort: true, accent: 'blue', segments: [{from:0,color:'green'},{from:1500,color:'amber'},{from:3000,color:'red'}] }, wide: true },
       { type: 'prism-entities-card', cfg: { title: 'Living Room', secondary: 'last-changed', accent: 'amber', entities: [

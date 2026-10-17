@@ -53,9 +53,13 @@ Flat 270° gauge with severity bands.
 |-----|------|---------|-------|
 | `min` | number | `0` | Scale minimum. |
 | `max` | number | `100` | Scale maximum. |
+| `min_attribute` | string | — | Read the minimum from this attribute of `entity` (e.g. `min`, `low_limit`). Used whenever it holds a number; `min` is the fallback. |
+| `max_attribute` | string | — | Read the maximum from this attribute of `entity` (e.g. `max`, `capacity`). Used whenever it holds a number; `max` is the fallback. |
 | `decimals` | number | auto | Center value precision. |
 | `style` | `fill` \| `bands` | `fill` | `fill`: progress arc coloured by active band. `bands`: full band arc + needle. |
-| `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. The active band colours the value. |
+| `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. `from` is an absolute value or a percentage of the range (`60%`). The active band colours the value. |
+
+**Range from attributes:** the range resolves per end in this order: `min_attribute` / `max_attribute` (when that attribute is numeric) → `min` / `max` → the entity's own range attributes (`min` / `max` on `input_number` and `number`, `minimum` / `maximum` on `counter`) → `0` / `100`. So an `input_number` gauge needs no range config at all, and a sensor that carries its limits as attributes (like reading `state_attr('sensor.tank', 'capacity')` in a template) can use them directly. In the visual editor, the attribute fields list the entity's numeric attributes.
 
 ```yaml
 type: custom:prism-gauge-card
@@ -68,6 +72,20 @@ segments:
   - { from: 20, color: green }
   - { from: 65, color: amber }
   - { from: 80, color: red }
+```
+
+```yaml
+# Range taken from the sensor's attributes (falls back to 0–500 if missing);
+# percentage bands follow that range wherever it lands.
+type: custom:prism-gauge-card
+entity: sensor.water_tank
+min_attribute: low_limit
+max_attribute: capacity
+max: 500
+segments:
+  - { from: 0%, color: red }
+  - { from: 20%, color: amber }
+  - { from: 40%, color: green }
 ```
 
 ---
@@ -140,10 +158,14 @@ Horizontal gauge — a single value on a linear scale with severity bands. The f
 | `icon` | string | — | Any `mdi:` icon beside the name. |
 | `min` | number | `0` | Scale minimum. |
 | `max` | number | `100` | Scale maximum. |
+| `min_attribute` | string | — | Read the minimum from this attribute of `entity` (e.g. `min`, `low_limit`). Used whenever it holds a number; `min` is the fallback. |
+| `max_attribute` | string | — | Read the maximum from this attribute of `entity` (e.g. `max`, `capacity`). Used whenever it holds a number; `max` is the fallback. |
 | `decimals` | number | auto | Value precision. |
 | `style` | `fill` \| `bands` | `fill` | `fill`: progress bar coloured by the active band. `bands`: full band strip + a marker at the value. |
-| `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. The active band colours the value (and the fill bar). |
+| `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. `from` is an absolute value or a percentage of the range (`60%`). The active band colours the value (and the fill bar). |
 | `show_minmax` | bool | `true` | Show min/max labels under the bar. |
+
+The range resolves the same way as the radial gauge: `min_attribute` / `max_attribute`, then `min` / `max`, then the entity's own range attributes, then `0` / `100`.
 
 ```yaml
 type: custom:prism-linear-gauge-card
