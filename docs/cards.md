@@ -57,6 +57,7 @@ Flat 270° gauge with severity bands.
 | `max_attribute` | string | — | Read the maximum from this attribute of `entity` (e.g. `max`, `capacity`). Used whenever it holds a number; `max` is the fallback. |
 | `decimals` | number | auto | Center value precision. |
 | `style` | `fill` \| `bands` | `fill` | `fill`: progress arc coloured by active band. `bands`: full band arc + needle. |
+| `needle` | bool | `true` | `bands` style only: show the grey needle pointing at the value. |
 | `segments` | list | — | `[{ from, color }]`; `color` is a preset or hex. `from` is an absolute value or a percentage of the range (`60%`). The active band colours the value. |
 
 **Range from attributes:** the range resolves per end in this order: `min_attribute` / `max_attribute` (when that attribute is numeric) → `min` / `max` → the entity's own range attributes (`min` / `max` on `input_number` and `number`, `minimum` / `maximum` on `counter`) → `0` / `100`. So an `input_number` gauge needs no range config at all, and a sensor that carries its limits as attributes (like reading `state_attr('sensor.tank', 'capacity')` in a template) can use them directly. In the visual editor, the attribute fields list the entity's numeric attributes.

@@ -43,7 +43,8 @@
         this._attributeField('Maximum from attribute', c.entity, c.max_attribute, (v) => this._patch('max_attribute', v)),
         this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
-        this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => this._patch('style', v)),
+        this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => { this._patch('style', v); this._rerender(); }),
+        ...(c.style === 'bands' ? [this._switch('Show needle', c.needle !== false, (v) => this._patch('needle', v))] : []),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._section('Severity bands'),
         this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
@@ -143,13 +144,17 @@
              stroke-width="${tw}" stroke-linecap="round" style="transition:stroke-dashoffset .5s"/>`
         : '';
 
-      // Bands mode: needle.
+      // Bands mode: needle. Grey (not the value colour) and starting clear of
+      // the hub, so it never reads as part of the centre value. It's drawn
+      // before the value text (SVG paints in document order), and the text's
+      // surface-coloured halo keeps the digits clean where the needle passes.
       let needle = '';
-      if (c.style === 'bands' && has) {
-        const [nx, ny] = pt(cx, cy, r - tw - 4, degAt(frac));
-        needle = `<line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"
-                    stroke="var(--_text)" stroke-width="3" stroke-linecap="round" style="transition:all .5s"/>
-                  <circle cx="${cx}" cy="${cy}" r="4" fill="var(--_text)"/>`;
+      if (c.style === 'bands' && c.needle !== false && has) {
+        const deg = degAt(frac);
+        const [x0, y0] = pt(cx, cy, 30, deg);
+        const [x1, y1] = pt(cx, cy, r - tw - 4, deg);
+        needle = `<line class="needle" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"
+                    stroke-width="3" stroke-linecap="round"/>`;
       }
 
       this.shadowRoot.innerHTML = `
@@ -161,6 +166,8 @@
           .track { stroke: var(--_surface-2); }
           .value { fill: var(--_text); font-weight:750; font-size:34px; letter-spacing:-.5px; }
           .unit { fill: var(--_text-2); font-weight:500; font-size:13px; }
+          .value, .unit { paint-order:stroke; stroke:var(--_surface); stroke-width:6px; stroke-linejoin:round; }
+          .needle { stroke: var(--_text-2); opacity:.85; }
           .end { fill: var(--_text-2); font-weight:500; font-size:11px; }
           .name { font-size:13px; font-weight:600; color:var(--_text-2); margin-top:4px;
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }

@@ -280,6 +280,18 @@ check('parses compact history', async () => {});
     if (!el.shadowRoot._html.includes('>500</text>')) throw new Error('max label not 500');
   });
 
+  check('gauge needle is grey, optional, and clear of the hub', () => {
+    const G = customElements.get('prism-gauge-card');
+    const el = new G();
+    el.setConfig({ entity: 'sensor.x', style: 'bands', segments: [{ from: 0, color: 'green' }] });
+    el.hass = hass;
+    const h = el.shadowRoot._html;
+    if (!h.includes('class="needle"') || !h.includes('stroke: var(--_text-2)')) throw new Error('needle missing or not grey');
+    if (/<circle cx="100" cy="100"/.test(h)) throw new Error('hub still drawn under the value');
+    if (h.indexOf('class="needle"') > h.indexOf('class="value"')) throw new Error('needle drawn above the value text');
+    el.setConfig({ entity: 'sensor.x', style: 'bands', needle: false, segments: [{ from: 0, color: 'green' }] });
+    if (el.shadowRoot._html.includes('class="needle"')) throw new Error('needle: false still drew it');
+  });
   check('gauge bands: absolute and percentage-of-range', () => {
     const segs = P.resolveSegments([{ from: '50%', color: 'b' }, { from: 0, color: 'a' }, { from: '90%', color: 'c' }, { from: 'x', color: 'bad' }, { color: 'none' }], 10, 60);
     const got = segs.map((s) => `${s.color}@${s.from}`).join(' ');
