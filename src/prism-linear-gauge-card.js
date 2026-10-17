@@ -18,18 +18,21 @@
       const c = this._config;
       stack.append(
         this._titleField(),
-        this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
+        this._picker('Entity (required)', c.entity, (v) => { this._patch('entity', v); this._rerender(); }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Minimum', c.min, (v) => this._patch('min', v), { type: 'number' }),
         this._tf('Maximum', c.max, (v) => this._patch('max', v), { type: 'number' }),
+        this._attributeField('Minimum from attribute', c.entity, c.min_attribute, (v) => this._patch('min_attribute', v)),
+        this._attributeField('Maximum from attribute', c.entity, c.max_attribute, (v) => this._patch('max_attribute', v)),
+        this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => this._patch('style', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show min / max labels', c.show_minmax !== false, (v) => this._patch('show_minmax', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. Colours accept preset names or hex.'),
+        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
         this._segmentsField(c.segments)
       );
     }
@@ -60,7 +63,7 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error('prism-linear-gauge-card: `entity` is required.');
-      this._config = { min: 0, max: 100, style: 'fill', ...config };
+      this._config = { style: 'fill', ...config };
       if (this._hass) this._render();
     }
 
@@ -73,17 +76,16 @@
     static getStubConfig(hass) {
       const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('sensor.')) : 'sensor.example';
       return {
-        entity: ent || 'sensor.example', min: 0, max: 100, style: 'fill',
+        entity: ent || 'sensor.example', style: 'fill',
         segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }],
       };
     }
 
-    _segColor(value) {
-      const segs = Array.isArray(this._config.segments) ? this._config.segments : [];
+    // `segs` is already resolved + sorted (P.resolveSegments).
+    _segColor(value, segs) {
       if (!segs.length) return P.resolveAccent(this._config.accent);
-      const sorted = [...segs].sort((a, b) => a.from - b.from);
-      let col = P.resolveAccent(sorted[0].color);
-      for (const s of sorted) if (value >= s.from) col = P.resolveAccent(s.color);
+      let col = P.resolveAccent(segs[0].color);
+      for (const s of segs) if (value >= s.from) col = P.resolveAccent(s.color);
       return col;
     }
 
@@ -93,19 +95,19 @@
       const hass = this._hass;
       const st = hass.states[c.entity];
       const bands = c.style === 'bands';
-      const min = Number(c.min), max = Number(c.max);
+      const { min, max } = P.gaugeRange(hass, c);
+      const segs = P.resolveSegments(c.segments, min, max);
       const span = (max - min) || 1;
       const raw = P.num(hass, c.entity);
       const has = !isNaN(raw);
       const frac = has ? P.clamp((raw - min) / span, 0, 1) : 0;
       const unit = P.unitOf(hass, c.entity, c.unit);
       const name = c.name || (st ? st.attributes.friendly_name : c.entity);
-      const valColor = this._segColor(raw);
+      const valColor = this._segColor(raw, segs);
       const value = has ? P.fmtNumber(raw, c.decimals != null ? Number(c.decimals) : (Math.abs(raw) >= 100 ? 0 : 1)) : '—';
 
       // Band strip (bands style): coloured segments across the scale.
       let bandStrip = '';
-      const segs = Array.isArray(c.segments) ? [...c.segments].sort((a, b) => a.from - b.from) : [];
       if (bands && segs.length) {
         bandStrip = segs.map((s, i) => {
           const f0 = P.clamp((s.from - min) / span, 0, 1);

@@ -34,10 +34,10 @@ Prism is two things working together:
 | Card | `type` | What it's for |
 |------|--------|---------------|
 | **Stat** | `custom:prism-stat-card` | KPI tile: dominant value, label, unit, trend delta over a window, optional inline sparkline. |
-| **Gauge** | `custom:prism-gauge-card` | Flat 270 degree gauge with configurable severity bands. `fill` or `bands`+needle styles. |
+| **Gauge** | `custom:prism-gauge-card` | Flat 270 degree gauge with configurable severity bands. `fill` or `bands`+needle styles. Min/max can come from the entity's attributes. |
 | **Sparkline** | `custom:prism-sparkline-card` | History mini-graph (line/area) with current value + optional min/max markers. |
 | **Power** | `custom:prism-power-card` | Live power tile: dominant value, load bar, window peak, optional energy total, and a `grid` mode for signed import/export sensors. |
-| **Linear Gauge** | `custom:prism-linear-gauge-card` | Horizontal gauge — one value on a linear scale with severity bands (`fill` bar or band strip + marker). |
+| **Linear Gauge** | `custom:prism-linear-gauge-card` | Horizontal gauge — one value on a linear scale with severity bands (`fill` bar or band strip + marker). Min/max can come from the entity's attributes. |
 | **Bar** | `custom:prism-bar-card` | Horizontal bar chart comparing several entities on a shared scale, with per-bar colour, severity bands, and sorting. |
 | **Entities** | `custom:prism-entities-card` | Flat entity list: icon, name, secondary line, and a right-aligned value or a flat toggle for actionable entities. |
 | **Filter** | `custom:prism-filter-card` | *Smart* dynamic list: pick a domain + condition (e.g. "lights that are on") and the card fills itself in and re-populates as state changes. `list` or `chips` layout, optional group-by-area sub-headers, live match count, empty state, inline toggles. |
@@ -54,6 +54,7 @@ Prism is two things working together:
 | **Creek stage** | `custom:prism-creek-card` | Creek-bank cross-section: water rises and falls with a stage sensor and spills over the banks at the crest, with dashed Action / Flood / Major lines, a status pill, trend per hour (rising = red), 24h peak, and last-updated. Includes a `custom:prism-creek-stage-feature` strip for tile cards. |
 | **Rain** | `custom:prism-rain-card` | Animated rain-gauge tile: a measuring cylinder that fills with the event total, raindrops falling in at a rate set by the intensity, the event amount + a rain-rate descriptor, and chips for hourly / 24h / weekly / monthly. |
 | **Air Quality** | `custom:prism-aqi-card` | AQI tile: a big value coloured by its US EPA category, the category + health advice, and a flat Good→Hazardous scale with a value marker. Reads an AQI sensor. |
+| **Air Purifier** | `custom:prism-purifier-card` | Air-purifier tile built for VeSync / Levoit Core purifiers (Core 600S etc.): PM2.5 inside a ring that glows in Levoit's air-quality colours, an outlet grille that spins faster with fan speed, filter life with a replace warning, an air-quality scale, a power chip, stepped fan-speed buttons, and Auto / Sleep presets. Sibling sensors are auto-detected from the fan. |
 | **Lightning** | `custom:prism-lightning-card` | Lightning tile: strike count as the dominant value, last-strike time + distance for context, and an animated flat storm cloud with a flickering bolt. |
 | **Lux** | `custom:prism-lux-card` | Illuminance tile with a living sun whose rays grow and warm in colour as the light level rises (log-scaled), a slow rotation + pulse, and a plain-language level (Dark → Bright sun). Moon at night. |
 
@@ -212,6 +213,17 @@ accent: blue
 type: custom:prism-aqi-card
 entity: sensor.air_quality_index
 title: Air Quality
+```
+
+```yaml
+# Air purifier (VeSync / Levoit Core 600S) — air quality, PM2.5, filter life,
+# power, fan speed + presets. Sensors are auto-detected from the fan's device.
+type: custom:prism-purifier-card
+entity: fan.air_cleaner
+title: Basement
+# air_quality_entity: sensor.air_cleaner_air_quality
+# pm25_entity: sensor.air_cleaner_pm2_5
+# filter_entity: sensor.air_cleaner_filter_lifetime
 ```
 
 ```yaml

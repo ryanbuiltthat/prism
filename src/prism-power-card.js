@@ -61,8 +61,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-power-card: `entity` is required.');
       this._config = { mode: 'load', ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) this._render();
     }
 
@@ -95,10 +101,12 @@
     async _maybeFetchHistory() {
       if (!this._needsHistory() || !this._hass) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return; // 5-min cache
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.hours) > 0 ? Number(this._config.hours) : 3;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 200);
       this._render();
     }

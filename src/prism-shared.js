@@ -16,7 +16,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.18.0';
+  const VERSION = '0.19.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -80,6 +80,53 @@
 
   function friendlyName(hass, entityId) {
     return hass?.states?.[entityId]?.attributes?.friendly_name ?? entityId ?? '';
+  }
+
+  // Range attributes an entity may already expose: input_number / number use
+  // `min`/`max`, counter uses `minimum`/`maximum`.
+  const AUTO_RANGE_ATTRS = { min: ['min', 'minimum'], max: ['max', 'maximum'] };
+
+  // One end of a gauge range (`key` is 'min' or 'max'). Precedence:
+  //   1. `<key>_attribute` — a named attribute on cfg.entity, when numeric
+  //   2. `<key>` — the configured number
+  //   3. a conventional range attribute the entity exposes (AUTO_RANGE_ATTRS)
+  //   4. `fallback`
+  function rangeBound(hass, cfg, key, fallback) {
+    const attrs = hass?.states?.[cfg.entity]?.attributes || {};
+    const attrNum = (name) => {
+      const v = parseFloat(attrs[name]);
+      return Number.isFinite(v) ? v : null;
+    };
+    const named = cfg[`${key}_attribute`] ? attrNum(cfg[`${key}_attribute`]) : null;
+    if (named != null) return named;
+    const set = cfg[key];
+    if (set != null && set !== '' && Number.isFinite(Number(set))) return Number(set);
+    for (const a of AUTO_RANGE_ATTRS[key] || []) {
+      const v = attrNum(a);
+      if (v != null) return v;
+    }
+    return fallback;
+  }
+
+  // { min, max } for a gauge card config (defaults 0–100).
+  function gaugeRange(hass, cfg) {
+    return { min: rangeBound(hass, cfg, 'min', 0), max: rangeBound(hass, cfg, 'max', 100) };
+  }
+
+  // Severity bands for a gauge, sorted, with each `from` resolved to an
+  // absolute value. A `from` may be a number (absolute) or a percentage of the
+  // min→max range ("60%"), so bands follow a range that comes from attributes.
+  function resolveSegments(segments, min, max) {
+    if (!Array.isArray(segments)) return [];
+    const at = (f) => {
+      const t = String(f ?? '').trim();
+      if (t.endsWith('%')) return min + (parseFloat(t) / 100) * (max - min);
+      return t === '' ? NaN : Number(t);
+    };
+    return segments
+      .map((s) => ({ ...s, from: at(s && s.from) }))
+      .filter((s) => Number.isFinite(s.from))
+      .sort((a, b) => a.from - b.from);
   }
 
   // ── Shared token stylesheet ───────────────────────────────────────
@@ -160,6 +207,15 @@
     } catch (e) {
       return [];
     }
+  }
+
+  // History cache policy for the stat / sparkline / power cards. A series is
+  // kept for 5 minutes; an empty one (no numeric history, e.g. a text sensor)
+  // is retried after 1 minute instead of on every state push.
+  const HISTORY_TTL = 5 * 60 * 1000;
+  const HISTORY_RETRY = 60 * 1000;
+  function historyStale(fetchedAt, points, now = Date.now()) {
+    return now - fetchedAt >= (points && points.length ? HISTORY_TTL : HISTORY_RETRY);
   }
 
   // Largest-Triangle-Three-Buckets-ish downsample (cheap): even stride.
@@ -525,6 +581,19 @@
       return this._tf(label + ' (mdi:…)', value, onChange);
     }
 
+    // Attribute picker for `entityId`: a dropdown of its numeric attributes
+    // (the current value is kept even if the entity no longer reports it),
+    // or a plain text field when the entity isn't known yet.
+    _attributeField(label, entityId, value, onChange) {
+      const attrs = this._hass?.states?.[entityId]?.attributes;
+      if (!attrs) return this._tf(label, value, onChange);
+      const names = Object.keys(attrs).filter((k) => Number.isFinite(parseFloat(attrs[k])) && typeof attrs[k] !== 'boolean');
+      if (value && !names.includes(value)) names.unshift(value);
+      const opts = [{ value: '', label: '— none —' },
+        ...names.map((k) => ({ value: k, label: attrs[k] != null ? `${k} (${attrs[k]})` : k }))];
+      return this._select(label, opts, value ?? '', onChange);
+    }
+
     _select(label, options, value, onChange) {
       const wrap = document.createElement('div');
       wrap.className = 'field';
@@ -763,7 +832,11 @@
     resolveAccent,
     unitOf,
     friendlyName,
+    rangeBound,
+    gaugeRange,
+    resolveSegments,
     fetchHistory,
+    historyStale,
     downsample,
     sparklinePath,
     registerCard,

@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.18.0';
+  const VERSION = '0.19.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -84,6 +84,53 @@
 
   function friendlyName(hass, entityId) {
     return hass?.states?.[entityId]?.attributes?.friendly_name ?? entityId ?? '';
+  }
+
+  // Range attributes an entity may already expose: input_number / number use
+  // `min`/`max`, counter uses `minimum`/`maximum`.
+  const AUTO_RANGE_ATTRS = { min: ['min', 'minimum'], max: ['max', 'maximum'] };
+
+  // One end of a gauge range (`key` is 'min' or 'max'). Precedence:
+  //   1. `<key>_attribute` — a named attribute on cfg.entity, when numeric
+  //   2. `<key>` — the configured number
+  //   3. a conventional range attribute the entity exposes (AUTO_RANGE_ATTRS)
+  //   4. `fallback`
+  function rangeBound(hass, cfg, key, fallback) {
+    const attrs = hass?.states?.[cfg.entity]?.attributes || {};
+    const attrNum = (name) => {
+      const v = parseFloat(attrs[name]);
+      return Number.isFinite(v) ? v : null;
+    };
+    const named = cfg[`${key}_attribute`] ? attrNum(cfg[`${key}_attribute`]) : null;
+    if (named != null) return named;
+    const set = cfg[key];
+    if (set != null && set !== '' && Number.isFinite(Number(set))) return Number(set);
+    for (const a of AUTO_RANGE_ATTRS[key] || []) {
+      const v = attrNum(a);
+      if (v != null) return v;
+    }
+    return fallback;
+  }
+
+  // { min, max } for a gauge card config (defaults 0–100).
+  function gaugeRange(hass, cfg) {
+    return { min: rangeBound(hass, cfg, 'min', 0), max: rangeBound(hass, cfg, 'max', 100) };
+  }
+
+  // Severity bands for a gauge, sorted, with each `from` resolved to an
+  // absolute value. A `from` may be a number (absolute) or a percentage of the
+  // min→max range ("60%"), so bands follow a range that comes from attributes.
+  function resolveSegments(segments, min, max) {
+    if (!Array.isArray(segments)) return [];
+    const at = (f) => {
+      const t = String(f ?? '').trim();
+      if (t.endsWith('%')) return min + (parseFloat(t) / 100) * (max - min);
+      return t === '' ? NaN : Number(t);
+    };
+    return segments
+      .map((s) => ({ ...s, from: at(s && s.from) }))
+      .filter((s) => Number.isFinite(s.from))
+      .sort((a, b) => a.from - b.from);
   }
 
   // ── Shared token stylesheet ───────────────────────────────────────
@@ -164,6 +211,15 @@
     } catch (e) {
       return [];
     }
+  }
+
+  // History cache policy for the stat / sparkline / power cards. A series is
+  // kept for 5 minutes; an empty one (no numeric history, e.g. a text sensor)
+  // is retried after 1 minute instead of on every state push.
+  const HISTORY_TTL = 5 * 60 * 1000;
+  const HISTORY_RETRY = 60 * 1000;
+  function historyStale(fetchedAt, points, now = Date.now()) {
+    return now - fetchedAt >= (points && points.length ? HISTORY_TTL : HISTORY_RETRY);
   }
 
   // Largest-Triangle-Three-Buckets-ish downsample (cheap): even stride.
@@ -529,6 +585,19 @@
       return this._tf(label + ' (mdi:…)', value, onChange);
     }
 
+    // Attribute picker for `entityId`: a dropdown of its numeric attributes
+    // (the current value is kept even if the entity no longer reports it),
+    // or a plain text field when the entity isn't known yet.
+    _attributeField(label, entityId, value, onChange) {
+      const attrs = this._hass?.states?.[entityId]?.attributes;
+      if (!attrs) return this._tf(label, value, onChange);
+      const names = Object.keys(attrs).filter((k) => Number.isFinite(parseFloat(attrs[k])) && typeof attrs[k] !== 'boolean');
+      if (value && !names.includes(value)) names.unshift(value);
+      const opts = [{ value: '', label: '— none —' },
+        ...names.map((k) => ({ value: k, label: attrs[k] != null ? `${k} (${attrs[k]})` : k }))];
+      return this._select(label, opts, value ?? '', onChange);
+    }
+
     _select(label, options, value, onChange) {
       const wrap = document.createElement('div');
       wrap.className = 'field';
@@ -767,7 +836,11 @@
     resolveAccent,
     unitOf,
     friendlyName,
+    rangeBound,
+    gaugeRange,
+    resolveSegments,
     fetchHistory,
+    historyStale,
     downsample,
     sparklinePath,
     registerCard,
@@ -1113,8 +1186,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-stat-card: `entity` is required.');
       this._config = { ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.trend_hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) this._render();
     }
 
@@ -1144,10 +1223,12 @@
     async _maybeFetchHistory() {
       if (!this._needsHistory() || !this._hass) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return; // 5-min cache
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.trend_hours) > 0 ? Number(this._config.trend_hours) : 24;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 200);
       this._render();
     }
@@ -1292,16 +1373,20 @@
       const c = this._config;
       stack.append(
         this._titleField(),
-        this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
+        this._picker('Entity (required)', c.entity, (v) => { this._patch('entity', v); this._rerender(); }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Minimum', c.min, (v) => this._patch('min', v), { type: 'number' }),
         this._tf('Maximum', c.max, (v) => this._patch('max', v), { type: 'number' }),
+        this._attributeField('Minimum from attribute', c.entity, c.min_attribute, (v) => this._patch('min_attribute', v)),
+        this._attributeField('Maximum from attribute', c.entity, c.max_attribute, (v) => this._patch('max_attribute', v)),
+        this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
-        this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => this._patch('style', v)),
+        this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => { this._patch('style', v); this._rerender(); }),
+        ...(c.style === 'bands' ? [this._switch('Show needle', c.needle !== false, (v) => this._patch('needle', v))] : []),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. Colours accept preset names or hex.'),
+        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
         this._segmentsField(c.segments)
       );
     }
@@ -1334,7 +1419,7 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error('prism-gauge-card: `entity` is required.');
-      this._config = { min: 0, max: 100, style: 'fill', ...config };
+      this._config = { style: 'fill', ...config };
       if (this._hass) this._render();
     }
 
@@ -1347,17 +1432,16 @@
     static getStubConfig(hass) {
       const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('sensor.')) : 'sensor.example';
       return {
-        entity: ent || 'sensor.example', min: 0, max: 100, style: 'fill',
+        entity: ent || 'sensor.example', style: 'fill',
         segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }],
       };
     }
 
-    _segColor(value) {
-      const segs = Array.isArray(this._config.segments) ? this._config.segments : [];
+    // `segs` is already resolved + sorted (P.resolveSegments).
+    _segColor(value, segs) {
       if (!segs.length) return P.resolveAccent(this._config.accent);
-      const sorted = [...segs].sort((a, b) => a.from - b.from);
-      let col = P.resolveAccent(sorted[0].color);
-      for (const s of sorted) if (value >= s.from) col = P.resolveAccent(s.color);
+      let col = P.resolveAccent(segs[0].color);
+      for (const s of segs) if (value >= s.from) col = P.resolveAccent(s.color);
       return col;
     }
 
@@ -1366,13 +1450,14 @@
       const c = this._config;
       const hass = this._hass;
       const st = hass.states[c.entity];
-      const min = Number(c.min), max = Number(c.max);
+      const { min, max } = P.gaugeRange(hass, c);
+      const segs = P.resolveSegments(c.segments, min, max);
       const raw = P.num(hass, c.entity);
       const has = !isNaN(raw);
       const frac = has ? P.clamp((raw - min) / (max - min || 1), 0, 1) : 0;
       const unit = P.unitOf(hass, c.entity, c.unit);
       const name = c.name || (st ? st.attributes.friendly_name : c.entity);
-      const valColor = this._segColor(raw);
+      const valColor = this._segColor(raw, segs);
       const value = has ? P.fmtNumber(raw, c.decimals != null ? Number(c.decimals) : (Math.abs(raw) >= 100 ? 0 : 1)) : '—';
 
       // Geometry sized so the full 270° arc (ends ~0.7·r below centre) fits.
@@ -1382,7 +1467,6 @@
       const [rx, ry] = pt(cx, cy, r, END); // lower-right end
 
       let bandArcs = '';
-      const segs = Array.isArray(c.segments) ? [...c.segments].sort((a, b) => a.from - b.from) : [];
       if (c.style === 'bands' && segs.length) {
         for (let i = 0; i < segs.length; i++) {
           const f0 = P.clamp((segs[i].from - min) / (max - min || 1), 0, 1);
@@ -1399,13 +1483,17 @@
              stroke-width="${tw}" stroke-linecap="round" style="transition:stroke-dashoffset .5s"/>`
         : '';
 
-      // Bands mode: needle.
+      // Bands mode: needle. Grey (not the value colour) and starting clear of
+      // the hub, so it never reads as part of the centre value. It's drawn
+      // before the value text (SVG paints in document order), and the text's
+      // surface-coloured halo keeps the digits clean where the needle passes.
       let needle = '';
-      if (c.style === 'bands' && has) {
-        const [nx, ny] = pt(cx, cy, r - tw - 4, degAt(frac));
-        needle = `<line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"
-                    stroke="var(--_text)" stroke-width="3" stroke-linecap="round" style="transition:all .5s"/>
-                  <circle cx="${cx}" cy="${cy}" r="4" fill="var(--_text)"/>`;
+      if (c.style === 'bands' && c.needle !== false && has) {
+        const deg = degAt(frac);
+        const [x0, y0] = pt(cx, cy, 30, deg);
+        const [x1, y1] = pt(cx, cy, r - tw - 4, deg);
+        needle = `<line class="needle" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"
+                    stroke-width="3" stroke-linecap="round"/>`;
       }
 
       this.shadowRoot.innerHTML = `
@@ -1417,6 +1505,8 @@
           .track { stroke: var(--_surface-2); }
           .value { fill: var(--_text); font-weight:750; font-size:34px; letter-spacing:-.5px; }
           .unit { fill: var(--_text-2); font-weight:500; font-size:13px; }
+          .value, .unit { paint-order:stroke; stroke:var(--_surface); stroke-width:6px; stroke-linejoin:round; }
+          .needle { stroke: var(--_text-2); opacity:.85; }
           .end { fill: var(--_text-2); font-weight:500; font-size:11px; }
           .name { font-size:13px; font-weight:600; color:var(--_text-2); margin-top:4px;
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
@@ -1502,8 +1592,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-sparkline-card: `entity` is required.');
       this._config = { hours: 24, style: 'area', ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) { this._maybeFetch(); this._render(); }
     }
 
@@ -1526,10 +1622,12 @@
     async _maybeFetch() {
       if (!this._hass || !this._config) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return;
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.hours) > 0 ? Number(this._config.hours) : 24;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 300);
       this._render();
     }
@@ -1703,8 +1801,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-power-card: `entity` is required.');
       this._config = { mode: 'load', ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) this._render();
     }
 
@@ -1737,10 +1841,12 @@
     async _maybeFetchHistory() {
       if (!this._needsHistory() || !this._hass) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return; // 5-min cache
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.hours) > 0 ? Number(this._config.hours) : 3;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 200);
       this._render();
     }
@@ -2187,18 +2293,21 @@
       const c = this._config;
       stack.append(
         this._titleField(),
-        this._picker('Entity (required)', c.entity, (v) => this._patch('entity', v)),
+        this._picker('Entity (required)', c.entity, (v) => { this._patch('entity', v); this._rerender(); }),
         this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
         this._iconField(c.icon, (v) => this._patch('icon', v)),
         this._tf('Unit override', c.unit, (v) => this._patch('unit', v)),
         this._tf('Minimum', c.min, (v) => this._patch('min', v), { type: 'number' }),
         this._tf('Maximum', c.max, (v) => this._patch('max', v), { type: 'number' }),
+        this._attributeField('Minimum from attribute', c.entity, c.min_attribute, (v) => this._patch('min_attribute', v)),
+        this._attributeField('Maximum from attribute', c.entity, c.max_attribute, (v) => this._patch('max_attribute', v)),
+        this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => this._patch('style', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show min / max labels', c.show_minmax !== false, (v) => this._patch('show_minmax', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. Colours accept preset names or hex.'),
+        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
         this._segmentsField(c.segments)
       );
     }
@@ -2229,7 +2338,7 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error('prism-linear-gauge-card: `entity` is required.');
-      this._config = { min: 0, max: 100, style: 'fill', ...config };
+      this._config = { style: 'fill', ...config };
       if (this._hass) this._render();
     }
 
@@ -2242,17 +2351,16 @@
     static getStubConfig(hass) {
       const ent = hass ? Object.keys(hass.states).find((e) => e.startsWith('sensor.')) : 'sensor.example';
       return {
-        entity: ent || 'sensor.example', min: 0, max: 100, style: 'fill',
+        entity: ent || 'sensor.example', style: 'fill',
         segments: [{ from: 0, color: 'green' }, { from: 60, color: 'amber' }, { from: 85, color: 'red' }],
       };
     }
 
-    _segColor(value) {
-      const segs = Array.isArray(this._config.segments) ? this._config.segments : [];
+    // `segs` is already resolved + sorted (P.resolveSegments).
+    _segColor(value, segs) {
       if (!segs.length) return P.resolveAccent(this._config.accent);
-      const sorted = [...segs].sort((a, b) => a.from - b.from);
-      let col = P.resolveAccent(sorted[0].color);
-      for (const s of sorted) if (value >= s.from) col = P.resolveAccent(s.color);
+      let col = P.resolveAccent(segs[0].color);
+      for (const s of segs) if (value >= s.from) col = P.resolveAccent(s.color);
       return col;
     }
 
@@ -2262,19 +2370,19 @@
       const hass = this._hass;
       const st = hass.states[c.entity];
       const bands = c.style === 'bands';
-      const min = Number(c.min), max = Number(c.max);
+      const { min, max } = P.gaugeRange(hass, c);
+      const segs = P.resolveSegments(c.segments, min, max);
       const span = (max - min) || 1;
       const raw = P.num(hass, c.entity);
       const has = !isNaN(raw);
       const frac = has ? P.clamp((raw - min) / span, 0, 1) : 0;
       const unit = P.unitOf(hass, c.entity, c.unit);
       const name = c.name || (st ? st.attributes.friendly_name : c.entity);
-      const valColor = this._segColor(raw);
+      const valColor = this._segColor(raw, segs);
       const value = has ? P.fmtNumber(raw, c.decimals != null ? Number(c.decimals) : (Math.abs(raw) >= 100 ? 0 : 1)) : '—';
 
       // Band strip (bands style): coloured segments across the scale.
       let bandStrip = '';
-      const segs = Array.isArray(c.segments) ? [...c.segments].sort((a, b) => a.from - b.from) : [];
       if (bands && segs.length) {
         bandStrip = segs.map((s, i) => {
           const f0 = P.clamp((s.from - min) / span, 0, 1);
@@ -6114,17 +6222,15 @@
     return `Updated ${Math.round(s / 86400)}d ago`;
   }
 
-  // Rendered text width in SVG units. Before the card is attached and laid out
-  // getComputedTextLength() returns 0, so estimate from the character count;
-  // _fit() runs again once the card is visible.
+  // Rendered text width in SVG units, as [width, measured]. Before the card is
+  // attached and laid out getComputedTextLength() returns 0, so estimate from
+  // the character count (measured = false); _fit() runs again once visible.
   function textLen(el) {
     let w = 0;
     try { w = el.getComputedTextLength(); } catch (_) { /* not rendered */ }
-    if (!w) {
-      const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
-      w = String(el.textContent || '').length * fs * 0.6;
-    }
-    return Math.ceil(w);
+    if (w) return [Math.ceil(w), true];
+    const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
+    return [Math.ceil(String(el.textContent || '').length * fs * 0.6), false];
   }
 
   // Shared terrain + extra colour tokens (TOKEN_STYLE covers the rest).
@@ -6350,15 +6456,19 @@
     connectedCallback() {
       this._tick = setInterval(() => { this._refreshHistory(); this._update(); }, 30000);
       if (typeof ResizeObserver !== 'undefined') {
-        this._ro = new ResizeObserver(() => this._fit());
+        this._ro = new ResizeObserver(() => this._scheduleFit());
         this._ro.observe(this);
       }
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this._fit());
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { this._fitMeasured = false; this._scheduleFit(); });
+      }
     }
 
     disconnectedCallback() {
       clearInterval(this._tick);
       if (this._ro) this._ro.disconnect();
+      if (this._fitRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._fitRaf);
+      this._fitRaf = 0;
     }
 
     getCardSize() { return 5; }
@@ -6470,29 +6580,49 @@
 
       const svg = q('svg.scene');
       if (svg) svg.setAttribute('aria-label', `${c.title || 'Creek stage'} ${fmt(stage, d)} ${unit}, ${st.label.toLowerCase()}`);
-      this._fit();
+      this._scheduleFit();
+    }
+
+    // Coalesce fit requests (state updates, resizes, font loads) into one frame,
+    // after the browser has laid the card out anyway.
+    _scheduleFit() {
+      if (this._fitRaf) return;
+      const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
+      this._fitRaf = raf(() => { this._fitRaf = 0; this._fit(); });
     }
 
     // Size the pill, threshold labels and peak chip to their text.
     _fit() {
       if (!this._built) return;
       const r = this.shadowRoot, q = (s) => r.querySelector(s);
+      // [text element, background, apply(width)] for each label that sizes to its text.
+      const items = [];
       const pillText = q('.pill'), pillBg = q('.pill-bg');
       if (pillText && pillBg) {
-        const w = textLen(pillText) + 22;
-        pillBg.setAttribute('width', w);
-        pillBg.setAttribute('x', 384 - w);
-        pillText.setAttribute('x', 384 - w / 2);
+        items.push([pillText, (tw) => {
+          const w = tw + 22;
+          pillBg.setAttribute('width', w);
+          pillBg.setAttribute('x', 384 - w);
+          pillText.setAttribute('x', 384 - w / 2);
+        }]);
       }
       for (const key of ['action', 'flood', 'major']) {
         const t = q(`.th-${key} text`), bg = q(`.th-${key} rect`);
-        if (!t || !bg) continue;
-        const w = textLen(t) + 8;
-        bg.setAttribute('width', w);
-        bg.setAttribute('x', 378 - w);
+        if (t && bg) items.push([t, (tw) => { bg.setAttribute('width', tw + 8); bg.setAttribute('x', 378 - (tw + 8)); }]);
       }
       const peakText = q('.peak-text'), peakBg = q('.peak-bg');
-      if (peakText && peakBg) peakBg.setAttribute('width', textLen(peakText) + 4 + 20);
+      if (peakText && peakBg) items.push([peakText, (tw) => peakBg.setAttribute('width', tw + 4 + 20)]);
+
+      // Widths in SVG units don't change when the card is resized, so skip the
+      // measurement unless a label changed or the last pass had to estimate.
+      const sig = items.map(([t]) => t.textContent).join('|');
+      if (sig === this._fitSig && this._fitMeasured) return;
+      // Read every width first, then write: interleaving reads with attribute
+      // writes forces a fresh layout for each label.
+      const widths = items.map(([t]) => textLen(t));
+      items.forEach(([, apply], i) => apply(widths[i][0]));
+      this._fitSig = sig;
+      this._fitMeasured = widths.every(([, measured]) => measured);
     }
   }
 
@@ -6637,4 +6767,396 @@
 
   // Exposed for the smoke test.
   P.creek = { profile, stageToY, band, trendRate, peakOver, trendText, G_CARD, G_FEAT };
+})();
+
+/* ===== src/prism-purifier-card.js ===== */
+/**
+ * prism-purifier-card
+ * Flat air-purifier tile, built around the VeSync / Levoit Core-series model
+ * (Core 600S / LAP-C601S, also 200S/300S/400S): a top-down "purifier" disc
+ * whose ring glows in Levoit's air-quality colour (blue → green → orange →
+ * red) with the PM2.5 reading as the dominant value; an outlet grille that
+ * spins faster at higher fan speeds; filter life + an air-quality scale; a
+ * power chip; stepped fan-speed buttons; and preset (Auto / Sleep) pills.
+ *
+ * Sibling sensors (air quality, PM2.5, filter lifetime) are auto-detected
+ * from the fan's device, and can be set explicitly.
+ *
+ * type: custom:prism-purifier-card
+ */
+(function () {
+  'use strict';
+  const P = window.PrismUI;
+
+  // Levoit's ring-light colours, Excellent → Poor (device levels 1–4).
+  const LEVELS = [
+    { key: 'excellent', label: 'Excellent', color: '#3aa0e8' },
+    { key: 'good', label: 'Good', color: '#3aa76d' },
+    { key: 'moderate', label: 'Moderate', color: '#e0922e' },
+    { key: 'poor', label: 'Poor', color: '#c64b4b' },
+  ];
+  const UNAVAILABLE = ['unavailable', 'unknown', 'none', ''];
+
+  // Air-quality level index (0–3) from the device's air-quality sensor — a
+  // 1–4 number or a word, depending on the integration version — falling back
+  // to Levoit's PM2.5 bands. -1 when neither is known.
+  function aqLevel(raw, pm) {
+    const s = String(raw ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (!UNAVAILABLE.includes(s)) {
+      const n = parseFloat(s);
+      if (!isNaN(n) && n >= 1 && n <= 4) return Math.round(n) - 1;
+      if (/^(excellent|very_good)$/.test(s)) return 0;
+      if (s === 'good') return 1;
+      if (/^(moderate|fair|medium)$/.test(s)) return 2;
+      if (/^(poor|bad|very_poor|unhealthy)$/.test(s)) return 3;
+    }
+    if (isNaN(pm)) return -1;
+    if (pm <= 12) return 0;
+    if (pm <= 35) return 1;
+    if (pm <= 55) return 2;
+    return 3;
+  }
+
+  // Number of discrete fan speeds: config override → percentage_step → 4.
+  function speedCount(st, override) {
+    if (Number(override) > 0) return Math.round(Number(override));
+    const step = st && Number(st.attributes.percentage_step);
+    return step > 0 && step < 100 ? Math.round(100 / step) : 4;
+  }
+
+  // Current speed step (1..count), or 0 when off / no percentage (e.g. auto).
+  function speedLevel(st, count) {
+    if (!st || st.state !== 'on') return 0;
+    const pct = Number(st.attributes.percentage);
+    if (!(pct > 0)) return 0;
+    return P.clamp(Math.ceil((pct * count) / 100 - 1e-6), 1, count);
+  }
+
+  const PRESET_LABELS = {
+    auto: 'Auto', sleep: 'Sleep', advanced_sleep: 'Adv. sleep', turbo: 'Turbo',
+    pet: 'Pet', normal: 'Normal', manual: 'Manual',
+  };
+  const presetLabel = (m) => PRESET_LABELS[m] || String(m).replace(/_/g, ' ').replace(/^./, (ch) => ch.toUpperCase());
+
+  // Sibling sensors of the fan: same device in the entity registry, else
+  // `sensor.<fan object id>_*` (VeSync names them …_air_quality, …_pm2_5,
+  // …_filter_lifetime).
+  function discover(hass, fanId) {
+    const out = { aq: null, pm25: null, filter: null };
+    if (!hass || !fanId) return out;
+    const reg = hass.entities || {};
+    const dev = reg[fanId] && reg[fanId].device_id;
+    let ids = dev ? Object.keys(reg).filter((id) => id.startsWith('sensor.') && reg[id].device_id === dev) : [];
+    if (!ids.length) {
+      const base = `sensor.${fanId.split('.')[1]}_`;
+      ids = Object.keys(hass.states).filter((id) => id.startsWith(base));
+    }
+    for (const id of ids) {
+      const a = (hass.states[id] && hass.states[id].attributes) || {};
+      if (!out.pm25 && (a.device_class === 'pm25' || /pm_?2_?5/.test(id))) out.pm25 = id;
+      else if (!out.filter && /filter/.test(id)) out.filter = id;
+      else if (!out.aq && /air_quality/.test(id)) out.aq = id;
+    }
+    return out;
+  }
+
+  // Outlet-grille spin period (s) by fan state — faster as the fan speeds up.
+  function spinPeriod(on, level, count, preset) {
+    if (!on) return 0;
+    if (level > 0) return Math.round((10 - (8 * level) / count) * 10) / 10; // 1/4 → 8s … 4/4 → 2s
+    return preset === 'sleep' || preset === 'advanced_sleep' ? 16 : 7;
+  }
+
+  // ── Editor ────────────────────────────────────────────────────────
+  class PrismPurifierCardEditor extends P.PrismEditor {
+    _fields(stack) {
+      const c = this._config;
+      stack.append(
+        this._titleField(),
+        this._picker('Air purifier (fan entity, required)', c.entity, (v) => this._patch('entity', v), { domains: ['fan'] }),
+        this._tf('Name (optional)', c.name, (v) => this._patch('name', v)),
+        this._iconField(c.icon, (v) => this._patch('icon', v)),
+        this._accentField(c.accent, (v) => this._patch('accent', v)),
+        this._section('Sensors'),
+        this._picker('Air quality', c.air_quality_entity, (v) => this._patch('air_quality_entity', v), { domains: ['sensor'] }),
+        this._picker('PM2.5', c.pm25_entity, (v) => this._patch('pm25_entity', v), { domains: ['sensor'] }),
+        this._picker('Filter lifetime', c.filter_entity, (v) => this._patch('filter_entity', v), { domains: ['sensor'] }),
+        this._hint('Leave blank to auto-detect them from the purifier’s device (VeSync: …_air_quality, …_pm2_5, …_filter_lifetime).'),
+        this._section('Controls'),
+        this._switch('Show fan speed', c.show_speed !== false, (v) => this._patch('show_speed', v)),
+        this._switch('Show presets (Auto / Sleep)', c.show_presets !== false, (v) => this._patch('show_presets', v)),
+        this._tf('Speed steps (optional)', c.speed_count, (v) => this._patch('speed_count', v), { type: 'number' }),
+        this._tf('Filter warning below', c.filter_warn, (v) => this._patch('filter_warn', v), { type: 'number', suffix: '%' }),
+        this._switch('Animate', c.animate !== false, (v) => this._patch('animate', v)),
+        this._hint('Tap the power chip to toggle, hold for more-info. Speed steps default to the fan’s own (4 on a Core 600S).')
+      );
+    }
+  }
+  customElements.define('prism-purifier-card-editor', PrismPurifierCardEditor);
+
+  // ── Card ──────────────────────────────────────────────────────────
+  class PrismPurifierCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._config = null;
+      this._hass = null;
+      this._sig = null;
+    }
+
+    setConfig(config) {
+      if (!config.entity) throw new Error('prism-purifier-card: `entity` is required.');
+      if (config.entity.split('.')[0] !== 'fan') throw new Error('prism-purifier-card: entity must be a fan.');
+      this._config = { animate: true, show_speed: true, show_presets: true, filter_warn: 20, ...config };
+      this._sig = null; // force a rebuild on the next render
+      if (this._hass) this._render();
+    }
+
+    set hass(hass) { this._hass = hass; this._render(); }
+
+    getCardSize() { return 6; }
+    getGridOptions() { return { columns: 12, min_columns: 6, rows: 'auto' }; }
+
+    static getConfigElement() { return document.createElement('prism-purifier-card-editor'); }
+    static getStubConfig(hass) {
+      const fans = hass ? Object.keys(hass.states).filter((e) => e.startsWith('fan.')) : [];
+      const ent = fans.find((e) => /purif|air|levoit|core/i.test(e)) || fans[0];
+      return { entity: ent || 'fan.air_purifier' };
+    }
+
+    // Configured sensor ids, else auto-detected siblings. Discovery is cached
+    // per entity-registry object (HA replaces it only when the registry
+    // changes), so it doesn't rescan on every state push.
+    _sensors() {
+      const c = this._config, reg = this._hass.entities;
+      const k = this._disc;
+      const d = reg && k && k.reg === reg && k.id === c.entity ? k.d : discover(this._hass, c.entity);
+      if (reg) this._disc = { reg, id: c.entity, d };
+      return { aq: c.air_quality_entity || d.aq, pm25: c.pm25_entity || d.pm25, filter: c.filter_entity || d.filter };
+    }
+
+    _call(service, data = {}) {
+      if (this._hass?.callService) this._hass.callService('fan', service, { entity_id: this._config.entity, ...data });
+    }
+    _moreInfo(id) {
+      this.dispatchEvent(new CustomEvent('hass-more-info', {
+        detail: { entityId: id || this._config.entity }, bubbles: true, composed: true,
+      }));
+    }
+
+    _render() {
+      if (!this._config || !this._hass) return;
+      const c = this._config, hass = this._hass;
+      const st = hass.states[c.entity];
+      const avail = !!st && !UNAVAILABLE.includes(st.state);
+      const on = avail && st.state === 'on';
+      const accent = P.resolveAccent(c.accent);
+      const ids = this._sensors();
+
+      const pm = ids.pm25 ? P.num(hass, ids.pm25) : NaN;
+      const aqRaw = ids.aq && hass.states[ids.aq] ? hass.states[ids.aq].state : null;
+      const lvl = aqLevel(aqRaw, pm);
+      const level = lvl >= 0 ? LEVELS[lvl] : null;
+      const ringColor = level ? level.color : 'var(--_text-2)';
+
+      const filter = ids.filter ? P.num(hass, ids.filter) : NaN;
+      const warn = Number(c.filter_warn) >= 0 ? Number(c.filter_warn) : 20;
+      const fState = isNaN(filter) ? null
+        : filter <= 5 ? { txt: 'Replace now', color: 'var(--_bad)' }
+        : filter <= warn ? { txt: 'Replace soon', color: 'var(--_warn)' }
+        : { txt: 'Good', color: 'var(--_good)' };
+
+      const count = speedCount(st, c.speed_count);
+      const speed = speedLevel(st, count);
+      const preset = on ? (st.attributes.preset_mode || null) : null;
+      const presets = (avail && Array.isArray(st.attributes.preset_modes) ? st.attributes.preset_modes : [])
+        .filter((m) => m && m !== 'manual');
+
+      const name = c.name || P.friendlyName(hass, c.entity);
+      const icon = c.icon || (st && st.attributes.icon) || 'mdi:air-purifier';
+      const status = !avail ? 'Unavailable'
+        : !on ? 'Off'
+        : preset ? `${presetLabel(preset)} mode`
+        : speed ? `Speed ${speed} of ${count}` : 'On';
+
+      const animate = c.animate !== false;
+      const period = animate ? spinPeriod(on, speed, count, preset) : 0;
+      const pmTxt = isNaN(pm) ? (level ? level.label : '—') : P.fmtNumber(pm, pm < 10 && pm % 1 ? 1 : 0);
+      const pmUnit = isNaN(pm) ? 'Air quality' : (P.unitOf(hass, ids.pm25, '') || 'µg/m³');
+
+      // Home Assistant pushes `hass` on every state change anywhere. Rebuild
+      // only when something shown here changes, so the spinning grille isn't
+      // restarted from frame 0 on every unrelated tick.
+      const sig = JSON.stringify([avail, on, lvl, pmTxt, pmUnit, filter, fState && fState.txt, count, speed, preset,
+        presets, name, icon, status, period, ids]);
+      if (sig === this._sig) return;
+      this._sig = sig;
+
+      // ── Purifier disc (viewBox 140) ─────────────────────────────────
+      const CX = 70, R = 50;
+      let grille = '';
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        const x1 = CX + Math.cos(a) * 58, y1 = CX + Math.sin(a) * 58;
+        const x2 = CX + Math.cos(a + 0.09) * 66, y2 = CX + Math.sin(a + 0.09) * 66;
+        grille += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+      }
+
+      const scale = LEVELS.map((L, i) =>
+        `<span class="seg${i === lvl ? ' cur' : ''}" style="background:${L.color}" title="${L.label}"></span>`).join('');
+
+      const speedHtml = c.show_speed !== false && avail ? `
+        <div class="speeds" role="group" aria-label="Fan speed">
+          ${Array.from({ length: count }, (_, i) => {
+            const n = i + 1, h = 8 + Math.round((n / count) * 14);
+            return `<button class="sp${on && n <= speed ? ' on' : ''}" data-speed="${n}" aria-label="Speed ${n}" aria-pressed="${on && n === speed}">
+              <span class="bar" style="height:${h}px"></span></button>`;
+          }).join('')}
+        </div>` : '';
+      const presetHtml = c.show_presets !== false && presets.length ? `
+        <div class="presets">${presets.map((m) =>
+          `<button class="pr${m === preset ? ' on' : ''}" data-preset="${P.esc(m)}" aria-pressed="${m === preset}">${P.esc(presetLabel(m))}</button>`).join('')}
+        </div>` : '';
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          ${P.TOKEN_STYLE}
+          .prism-card { display:flex; flex-direction:column; gap:14px; container-type:inline-size; --_ring:${ringColor}; --_disc:150px; }
+          button { font:inherit; color:inherit; border:none; background:none; padding:0; cursor:pointer; }
+          button:focus-visible, [tabindex]:focus-visible { outline:2px solid ${accent}; outline-offset:2px; }
+          button:disabled { cursor:default; opacity:.5; }
+
+          .head { display:flex; align-items:center; gap:12px; }
+          .pw { --mdc-icon-size:22px; width:42px; height:42px; border-radius:50%; flex:none; display:flex;
+                align-items:center; justify-content:center; background:var(--_surface-2); color:var(--_text-2);
+                transition:background .2s, color .2s; user-select:none; -webkit-user-select:none; }
+          .pw.on { background:${accent}; color:#fff; }
+          .txt { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+          .nm { font-size:15px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .st { font-size:12px; font-weight:550; color:var(--_text-2); }
+          .st.on { color:${accent}; }
+
+          .hero { display:flex; align-items:center; gap:22px; }
+          .disc { position:relative; width:var(--_disc); height:var(--_disc); flex:none; cursor:pointer; }
+          .disc svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+          .grille line { stroke:var(--_ring); stroke-width:2.6; stroke-linecap:round; opacity:${on ? '.5' : '.18'}; }
+          .grille { transform-box:view-box; transform-origin:${CX}px ${CX}px;
+                    ${period ? `animation:pf-spin ${period}s linear infinite;` : ''} }
+          @keyframes pf-spin { to { transform:rotate(360deg); } }
+          .halo { fill:none; stroke:var(--_ring); stroke-width:14; opacity:${on ? '.13' : '.05'}; }
+          .ring { fill:var(--_surface-2); stroke:var(--_ring); stroke-width:5; opacity:${on ? '1' : '.45'}; transition:stroke .4s; }
+          .core { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+          .pm { font-size:${isNaN(pm) ? 20 : 38}px; font-weight:750; line-height:1; letter-spacing:-1px; color:var(--_text); }
+          .pmu { font-size:11px; font-weight:600; color:var(--_text-2); margin-top:4px; }
+          .pml { font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; color:var(--_ring); margin-top:2px; }
+
+          .side { display:flex; flex-direction:column; gap:14px; min-width:0; flex:1; }
+          .blk { display:flex; flex-direction:column; gap:4px; cursor:pointer; min-width:0; }
+          .lbl { font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--_text-2); white-space:nowrap; }
+          .val { display:flex; align-items:baseline; gap:7px; margin-bottom:3px; white-space:nowrap; }
+          .big { font-size:22px; font-weight:750; line-height:1.05; letter-spacing:-.5px; color:var(--_text); }
+          .big small { font-size:12px; font-weight:650; color:var(--_text-2); margin-left:1px; }
+          .big.aqv { font-size:18px; color:var(--_ring); }
+          .track { position:relative; height:8px; border-radius:4px; background:var(--_surface-2); overflow:hidden; }
+          .track .fill { position:absolute; inset:0 auto 0 0; border-radius:4px; transition:width .4s; }
+          .note { font-size:11.5px; font-weight:700; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .scale { display:flex; gap:3px; height:8px; }
+          .seg { flex:1; border-radius:3px; opacity:.22; transition:opacity .3s; }
+          .seg.cur { opacity:1; }
+
+          .ctl { display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; }
+          .speeds { flex:3 1 150px; display:flex; align-items:flex-end; gap:4px; padding:4px; border-radius:12px; background:var(--_surface-2); }
+          .sp { flex:1; height:34px; border-radius:8px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:5px; box-sizing:border-box; }
+          .sp:hover { background:color-mix(in srgb, var(--_text) 6%, transparent); }
+          .sp .bar { width:9px; border-radius:3px; background:var(--_text-2); opacity:.35; transition:background .2s, opacity .2s; }
+          .sp.on .bar { background:${accent}; opacity:1; }
+          .presets { flex:2 1 100px; display:flex; gap:6px; }
+          .pr { flex:1; padding:8px 12px; white-space:nowrap; border-radius:999px; font-size:12px; font-weight:700; background:var(--_surface-2); color:var(--_text-2);
+                transition:background .2s, color .2s; }
+          .pr.on { background:${accent}; color:#fff; }
+          @container (max-width: 300px) {
+            .prism-card { --_disc:116px; gap:12px; }
+            .hero { gap:14px; }
+            .pm { font-size:${isNaN(pm) ? 17 : 32}px; }
+          }
+        </style>
+        <div class="prism-card">
+          ${P.titleHead(c.title)}
+          <div class="head">
+            <div class="pw${on ? ' on' : ''}" role="button" tabindex="0" aria-pressed="${on}" aria-label="${P.esc(name)} power">
+              <ha-icon icon="${P.esc(icon)}"></ha-icon>
+            </div>
+            <div class="txt">
+              <span class="nm">${P.esc(name)}</span>
+              <span class="st${on ? ' on' : ''}">${P.esc(status)}</span>
+            </div>
+          </div>
+
+          <div class="hero">
+            <div class="disc" role="button" tabindex="0" data-entity="${P.esc(ids.pm25 || ids.aq || c.entity)}"
+                 aria-label="PM2.5 ${P.esc(pmTxt)} ${P.esc(pmUnit)}${level ? `, ${P.esc(level.label)}` : ''}">
+              <svg viewBox="0 0 140 140" aria-hidden="true">
+                <g class="grille">${grille}</g>
+                <circle class="halo" cx="${CX}" cy="${CX}" r="${R}"/>
+                <circle class="ring" cx="${CX}" cy="${CX}" r="${R}"/>
+              </svg>
+              <div class="core">
+                <span class="pm">${P.esc(pmTxt)}</span>
+                ${isNaN(pm) ? '' : `<span class="pmu">${P.esc(pmUnit)}</span><span class="pml">PM2.5</span>`}
+              </div>
+            </div>
+            <div class="side">
+              ${fState ? `
+                <div class="blk" data-entity="${P.esc(ids.filter)}" role="button" tabindex="0" aria-label="Filter life ${Math.round(filter)}%">
+                  <span class="lbl">Filter life</span>
+                  <div class="val"><span class="big">${P.fmtNumber(P.clamp(filter, 0, 100), 0)}<small>%</small></span></div>
+                  <div class="track"><div class="fill" style="width:${P.clamp(filter, 0, 100)}%;background:${fState.color}"></div></div>
+                  <span class="note" style="color:${fState.color}">${fState.txt}</span>
+                </div>` : ''}
+              <div class="blk" ${ids.aq ? `data-entity="${P.esc(ids.aq)}" role="button" tabindex="0"` : ''} aria-label="Air quality ${level ? level.label : 'unknown'}">
+                <span class="lbl">Air quality</span>
+                <div class="val"><span class="big aqv">${P.esc(level ? level.label : '—')}</span></div>
+                <div class="scale">${scale}</div>
+              </div>
+            </div>
+          </div>
+
+          ${speedHtml || presetHtml ? `<div class="ctl">${speedHtml}${presetHtml}</div>` : ''}
+        </div>`;
+
+      const root = this.shadowRoot;
+      const pw = root.querySelector('.pw');
+      if (avail) P.bindTap(pw, () => this._call('toggle'), () => this._moreInfo());
+      else pw.addEventListener('click', () => this._moreInfo());
+
+      root.querySelectorAll('[data-entity]').forEach((el) => {
+        const open = () => this._moreInfo(el.dataset.entity);
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      });
+
+      root.querySelectorAll('.sp').forEach((el) => el.addEventListener('click', () => {
+        const n = Number(el.dataset.speed);
+        // Optimistic: light the steps now; the next state push confirms it.
+        root.querySelectorAll('.sp').forEach((b) => b.classList.toggle('on', Number(b.dataset.speed) <= n));
+        root.querySelectorAll('.pr').forEach((b) => b.classList.remove('on'));
+        this._call('set_percentage', { percentage: Math.round((n * 100) / count) });
+      }));
+      root.querySelectorAll('.pr').forEach((el) => el.addEventListener('click', () => {
+        root.querySelectorAll('.pr').forEach((b) => b.classList.toggle('on', b === el));
+        root.querySelectorAll('.sp').forEach((b) => b.classList.remove('on'));
+        this._call('set_preset_mode', { preset_mode: el.dataset.preset });
+      }));
+    }
+  }
+
+  customElements.define('prism-purifier-card', PrismPurifierCard);
+  P.registerCard({
+    type: 'prism-purifier-card',
+    name: 'Prism Air Purifier Card',
+    description: 'Air-purifier tile (VeSync / Levoit Core): PM2.5 on an air-quality ring, spinning outlet grille, filter life, power, fan speed and presets.',
+  });
+
+  // Exposed for the smoke test.
+  P.purifier = { aqLevel, speedCount, speedLevel, discover, spinPeriod };
 })();

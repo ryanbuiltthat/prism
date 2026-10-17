@@ -133,6 +133,11 @@
         'sensor.lightning_last': { state: new Date(now - 12 * 60000).toISOString(), attributes: { friendly_name: 'Last Strike', device_class: 'timestamp' } },
         'sensor.illuminance':    { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
         'sensor.creek_stage':    { state: '2.42', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 4 * 60000).toISOString() },
+        'sensor.water_tank':     { state: '312', attributes: { friendly_name: 'Water Tank', unit_of_measurement: 'L', capacity: 500, low_limit: 50 } },
+        'fan.air_cleaner':       { state: 'on', attributes: { friendly_name: 'Air Cleaner', percentage: 50, percentage_step: 25, preset_mode: null, preset_modes: ['auto', 'sleep'] } },
+        'sensor.air_cleaner_air_quality':    { state: 'good', attributes: { friendly_name: 'Air Cleaner Air Quality' } },
+        'sensor.air_cleaner_pm2_5':          { state: '14', attributes: { friendly_name: 'Air Cleaner PM2.5', unit_of_measurement: 'µg/m³', device_class: 'pm25' } },
+        'sensor.air_cleaner_filter_lifetime':{ state: '72', attributes: { friendly_name: 'Air Cleaner Filter Lifetime', unit_of_measurement: '%' } },
       },
       config: { unit_system: { temperature: '°C' } },
       // Frontend registries (for area-name lookups).
@@ -185,6 +190,8 @@
         else if (service === 'open_cover') next = { state: 'open', attributes: { ...cur.attributes, current_position: 100 } };
         else if (service === 'close_cover') next = { state: 'closed', attributes: { ...cur.attributes, current_position: 0 } };
         else if (service === 'media_play_pause') next = { state: cur.state === 'playing' ? 'paused' : 'playing' };
+        else if (service === 'set_percentage') next = { state: data.percentage > 0 ? 'on' : 'off', attributes: { ...cur.attributes, percentage: data.percentage, preset_mode: null } };
+        else if (service === 'set_preset_mode') next = { state: 'on', attributes: { ...cur.attributes, percentage: null, preset_mode: data.preset_mode } };
         else if (service === 'volume_set') next = { attributes: { ...cur.attributes, volume_level: data.volume_level } };
         if (next) {
           hass.states[id] = { ...cur, ...next, attributes: next.attributes || cur.attributes, last_changed: new Date().toISOString() };
@@ -202,6 +209,7 @@
       { type: 'prism-power-card', cfg: { entity: 'sensor.house_power', icon: 'mdi:home-lightning-bolt', mode: 'load', hours: 3, peak: true, sparkline: true, energy_entity: 'sensor.energy_today', energy_label: 'Today', accent: 'amber' } },
       { type: 'prism-power-card', cfg: { entity: 'sensor.grid_net', icon: 'mdi:transmission-tower', mode: 'grid', hours: 3, peak: true, sparkline: true, accent: 'teal' } },
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.humidity', name: 'Humidity', icon: 'mdi:water-percent', min: 0, max: 100, style: 'fill', segments: [{from:0,color:'amber'},{from:35,color:'green'},{from:65,color:'blue'}] } },
+      { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.water_tank', icon: 'mdi:water', max_attribute: 'capacity', style: 'fill', segments: [{from:'0%',color:'red'},{from:'20%',color:'amber'},{from:'40%',color:'blue'}] } },
       { type: 'prism-linear-gauge-card', cfg: { entity: 'sensor.cpu_temperature', name: 'CPU Temp', min: 20, max: 90, style: 'bands', segments: [{from:20,color:'green'},{from:65,color:'amber'},{from:80,color:'red'}] } },
       { type: 'prism-bar-card', cfg: { title: 'Power by circuit', entities: ['sensor.circuit_ev','sensor.circuit_hvac','sensor.circuit_kitchen','sensor.circuit_lights'], unit: 'W', sort: true, accent: 'blue', segments: [{from:0,color:'green'},{from:1500,color:'amber'},{from:3000,color:'red'}] }, wide: true },
       { type: 'prism-entities-card', cfg: { title: 'Living Room', secondary: 'last-changed', accent: 'amber', entities: [
@@ -232,6 +240,7 @@
       { type: 'prism-lightning-card', cfg: { title: 'Lightning', count_entity: 'sensor.lightning_count', distance_entity: 'sensor.lightning_dist', time_entity: 'sensor.lightning_last' } },
       { type: 'prism-lux-card', cfg: { title: 'Illuminance', entity: 'sensor.illuminance' } },
       { type: 'prism-creek-card', cfg: { title: 'Mill Creek', entity: 'sensor.creek_stage', bed: 0, bank: 3.2, action: 2, flood: 3.2, major: 4 } },
+      { type: 'prism-purifier-card', cfg: { title: 'Basement', entity: 'fan.air_cleaner' } },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.grid_power', hours: 24, style: 'area', show_minmax: true, accent: 'teal' }, wide: true },
       { type: 'prism-sparkline-card', cfg: { entity: 'sensor.house_power', hours: 24, style: 'line', accent: 'blue' }, wide: true },
     ];

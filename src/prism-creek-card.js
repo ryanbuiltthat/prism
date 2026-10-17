@@ -118,17 +118,15 @@
     return `Updated ${Math.round(s / 86400)}d ago`;
   }
 
-  // Rendered text width in SVG units. Before the card is attached and laid out
-  // getComputedTextLength() returns 0, so estimate from the character count;
-  // _fit() runs again once the card is visible.
+  // Rendered text width in SVG units, as [width, measured]. Before the card is
+  // attached and laid out getComputedTextLength() returns 0, so estimate from
+  // the character count (measured = false); _fit() runs again once visible.
   function textLen(el) {
     let w = 0;
     try { w = el.getComputedTextLength(); } catch (_) { /* not rendered */ }
-    if (!w) {
-      const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
-      w = String(el.textContent || '').length * fs * 0.6;
-    }
-    return Math.ceil(w);
+    if (w) return [Math.ceil(w), true];
+    const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
+    return [Math.ceil(String(el.textContent || '').length * fs * 0.6), false];
   }
 
   // Shared terrain + extra colour tokens (TOKEN_STYLE covers the rest).
@@ -354,15 +352,19 @@
     connectedCallback() {
       this._tick = setInterval(() => { this._refreshHistory(); this._update(); }, 30000);
       if (typeof ResizeObserver !== 'undefined') {
-        this._ro = new ResizeObserver(() => this._fit());
+        this._ro = new ResizeObserver(() => this._scheduleFit());
         this._ro.observe(this);
       }
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this._fit());
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { this._fitMeasured = false; this._scheduleFit(); });
+      }
     }
 
     disconnectedCallback() {
       clearInterval(this._tick);
       if (this._ro) this._ro.disconnect();
+      if (this._fitRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._fitRaf);
+      this._fitRaf = 0;
     }
 
     getCardSize() { return 5; }
@@ -474,29 +476,49 @@
 
       const svg = q('svg.scene');
       if (svg) svg.setAttribute('aria-label', `${c.title || 'Creek stage'} ${fmt(stage, d)} ${unit}, ${st.label.toLowerCase()}`);
-      this._fit();
+      this._scheduleFit();
+    }
+
+    // Coalesce fit requests (state updates, resizes, font loads) into one frame,
+    // after the browser has laid the card out anyway.
+    _scheduleFit() {
+      if (this._fitRaf) return;
+      const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
+      this._fitRaf = raf(() => { this._fitRaf = 0; this._fit(); });
     }
 
     // Size the pill, threshold labels and peak chip to their text.
     _fit() {
       if (!this._built) return;
       const r = this.shadowRoot, q = (s) => r.querySelector(s);
+      // [text element, background, apply(width)] for each label that sizes to its text.
+      const items = [];
       const pillText = q('.pill'), pillBg = q('.pill-bg');
       if (pillText && pillBg) {
-        const w = textLen(pillText) + 22;
-        pillBg.setAttribute('width', w);
-        pillBg.setAttribute('x', 384 - w);
-        pillText.setAttribute('x', 384 - w / 2);
+        items.push([pillText, (tw) => {
+          const w = tw + 22;
+          pillBg.setAttribute('width', w);
+          pillBg.setAttribute('x', 384 - w);
+          pillText.setAttribute('x', 384 - w / 2);
+        }]);
       }
       for (const key of ['action', 'flood', 'major']) {
         const t = q(`.th-${key} text`), bg = q(`.th-${key} rect`);
-        if (!t || !bg) continue;
-        const w = textLen(t) + 8;
-        bg.setAttribute('width', w);
-        bg.setAttribute('x', 378 - w);
+        if (t && bg) items.push([t, (tw) => { bg.setAttribute('width', tw + 8); bg.setAttribute('x', 378 - (tw + 8)); }]);
       }
       const peakText = q('.peak-text'), peakBg = q('.peak-bg');
-      if (peakText && peakBg) peakBg.setAttribute('width', textLen(peakText) + 4 + 20);
+      if (peakText && peakBg) items.push([peakText, (tw) => peakBg.setAttribute('width', tw + 4 + 20)]);
+
+      // Widths in SVG units don't change when the card is resized, so skip the
+      // measurement unless a label changed or the last pass had to estimate.
+      const sig = items.map(([t]) => t.textContent).join('|');
+      if (sig === this._fitSig && this._fitMeasured) return;
+      // Read every width first, then write: interleaving reads with attribute
+      // writes forces a fresh layout for each label.
+      const widths = items.map(([t]) => textLen(t));
+      items.forEach(([, apply], i) => apply(widths[i][0]));
+      this._fitSig = sig;
+      this._fitMeasured = widths.every(([, measured]) => measured);
     }
   }
 

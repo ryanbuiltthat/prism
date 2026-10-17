@@ -28,7 +28,8 @@ $files = @(
   'src/prism-aqi-card.js',
   'src/prism-lightning-card.js',
   'src/prism-lux-card.js',
-  'src/prism-creek-card.js'
+  'src/prism-creek-card.js',
+  'src/prism-purifier-card.js'
 )
 
 $sb = [System.Text.StringBuilder]::new()
