@@ -20,7 +20,7 @@
 
   if (window.PrismUI && window.PrismUI.version) return; // already loaded
 
-  const VERSION = '0.19.0';
+  const VERSION = '0.20.0';
 
   // ── Named accent presets ──────────────────────────────────────────
   // Selectable in every card editor; a card may also use a raw hex value.
@@ -808,6 +808,82 @@
       return wrap;
     }
 
+    // Compact colour picker: a preset name or a custom colour. `blank` names an
+    // extra first option that stores no colour (e.g. "accent"); pass null to
+    // require a colour.
+    _colorField(value, onChange, { label = 'Colour', blank = 'accent' } = {}) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const lbl = document.createElement('label');
+      lbl.className = 'lbl';
+      lbl.textContent = label;
+      const row = document.createElement('div');
+      row.className = 'accent-row';
+      const sel = document.createElement('select');
+      sel.className = 'sel';
+      const empty = value == null || value === '';
+      const custom = !empty && !ACCENTS[value];
+      [...(blank ? [blank] : []), ...Object.keys(ACCENTS), 'custom'].forEach((name) => {
+        const o = document.createElement('option');
+        o.value = name; o.textContent = name;
+        if (name === value || (name === blank && empty) || (name === 'custom' && custom)) o.selected = true;
+        sel.appendChild(o);
+      });
+      const color = document.createElement('input');
+      color.type = 'color'; color.className = 'color';
+      color.value = ACCENTS[value] || (custom ? value : '#3aa0e8');
+      color.style.display = custom ? 'inline-block' : 'none';
+      sel.addEventListener('change', (e) => {
+        const v = e.target.value;
+        if (v === 'custom') { color.style.display = 'inline-block'; onChange(color.value); }
+        else { color.style.display = 'none'; onChange(v === blank ? '' : v); }
+      });
+      color.addEventListener('input', (e) => onChange(e.target.value));
+      row.append(sel, color);
+      wrap.append(lbl, row);
+      return wrap;
+    }
+
+    // Severity-band editor for config.segments ([{ from, color }]): one row per
+    // band with a "From" input (a value, or a percentage of the range like
+    // "60%") and a colour. Writes the list back, or removes the key when empty.
+    _bandsField() {
+      const PALETTE = ['green', 'amber', 'red', 'purple', 'blue'];
+      const parseFrom = (t) => {
+        const s = String(t ?? '').trim().replace(/\s+%$/, '%');
+        if (s === '') return '';
+        if (/^-?\d+(\.\d+)?%$/.test(s)) return s;
+        return Number.isFinite(Number(s)) ? Number(s) : s;
+      };
+      // A sensible start for a new band: continue the existing spacing.
+      const nextFrom = (bands) => {
+        const last = bands.length ? bands[bands.length - 1].from : null;
+        if (last == null || last === '') return 0;
+        if (/%$/.test(String(last))) return `${Math.min(100, parseFloat(last) + 20)}%`;
+        const n = Number(last);
+        if (!Number.isFinite(n)) return '';
+        const prev = bands.length > 1 ? Number(bands[bands.length - 2].from) : NaN;
+        return n + (Number.isFinite(prev) && n > prev ? n - prev : 10);
+      };
+      const get = () => (Array.isArray(this._config.segments) ? this._config.segments : []).map((b) => ({ ...b }));
+      return this._listField({
+        get,
+        onChange: (bands) => this._patch('segments', bands.length ? bands : ''),
+        newItem: () => { const cur = get(); return { from: nextFrom(cur), color: PALETTE[cur.length % PALETTE.length] }; },
+        addLabel: '+ Add band',
+        reorder: false,
+        row: (band, i, set, body) => {
+          const sub = document.createElement('div');
+          sub.className = 'plist-sub';
+          sub.append(
+            this._tf('From (value or %)', band.from, (v) => set({ from: parseFrom(v) })),
+            this._colorField(band.color, (v) => set({ color: v }), { blank: null })
+          );
+          body.appendChild(sub);
+        },
+      });
+    }
+
     // Subclasses implement _fields(stack) to append their controls.
     _render() {
       if (!this._config) return;
@@ -1366,6 +1442,8 @@
     return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
   }
   const degAt = (f) => START - P.clamp(f, 0, 1) * SWEEP;
+  // The needle is on by default for the bands style, off for fill.
+  const needleOn = (c) => (c.needle != null ? c.needle !== false : c.style === 'bands');
 
   // ── Editor ────────────────────────────────────────────────────────
   class PrismGaugeCardEditor extends P.PrismEditor {
@@ -1383,27 +1461,12 @@
         this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => { this._patch('style', v); this._rerender(); }),
-        ...(c.style === 'bands' ? [this._switch('Show needle', c.needle !== false, (v) => this._patch('needle', v))] : []),
+        this._switch('Show needle', needleOn(c), (v) => this._patch('needle', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
-        this._segmentsField(c.segments)
+        this._hint('Each band starts at its “From” value and colours readings at or above it. Use a number, or a percentage of the range (e.g. 60%) so bands follow a min / max that comes from attributes.'),
+        this._bandsField()
       );
-    }
-
-    _segmentsField(value) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const ta = document.createElement('textarea');
-      ta.rows = 5;
-      ta.className = 'sel';
-      ta.style.fontFamily = 'monospace';
-      ta.value = JSON.stringify(value ?? [], null, 2);
-      ta.addEventListener('change', (e) => {
-        try { this._patch('segments', JSON.parse(e.target.value)); } catch (_) { /* wait for valid JSON */ }
-      });
-      wrap.appendChild(ta);
-      return wrap;
     }
   }
   customElements.define('prism-gauge-card-editor', PrismGaugeCardEditor);
@@ -1488,7 +1551,7 @@
       // before the value text (SVG paints in document order), and the text's
       // surface-coloured halo keeps the digits clean where the needle passes.
       let needle = '';
-      if (c.style === 'bands' && c.needle !== false && has) {
+      if (needleOn(c) && has) {
         const deg = degAt(frac);
         const [x0, y0] = pt(cx, cy, 30, deg);
         const [x1, y1] = pt(cx, cy, r - tw - 4, deg);
@@ -2090,58 +2153,9 @@
           },
         }),
         this._section('Severity bands (optional)'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":1000,"color":"amber"},{"from":2000,"color":"red"}]. Colours a bar by its value unless the bar has its own colour.'),
-        this._segmentsField(c.segments)
+        this._hint('Each band starts at its “From” value and colours bars at or above it, unless a bar has its own colour. Use a number, or a percentage of the shared scale (e.g. 60%).'),
+        this._bandsField()
       );
-    }
-
-    // Compact colour picker: "accent" (blank) or a custom colour.
-    _colorField(value, onChange) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const lbl = document.createElement('label');
-      lbl.className = 'lbl';
-      lbl.textContent = 'Colour';
-      const row = document.createElement('div');
-      row.className = 'accent-row';
-      const sel = document.createElement('select');
-      sel.className = 'sel';
-      const custom = value != null && value !== '' && !P.ACCENTS[value];
-      ['accent', ...Object.keys(P.ACCENTS), 'custom'].forEach((name) => {
-        const o = document.createElement('option');
-        o.value = name; o.textContent = name;
-        if ((name === value) || (name === 'accent' && (value == null || value === '')) || (name === 'custom' && custom)) o.selected = true;
-        sel.appendChild(o);
-      });
-      const color = document.createElement('input');
-      color.type = 'color'; color.className = 'color';
-      color.value = P.ACCENTS[value] || (custom ? value : '#3aa0e8');
-      color.style.display = custom ? 'inline-block' : 'none';
-      sel.addEventListener('change', (e) => {
-        const v = e.target.value;
-        if (v === 'custom') { color.style.display = 'inline-block'; onChange(color.value); }
-        else { color.style.display = 'none'; onChange(v === 'accent' ? '' : v); }
-      });
-      color.addEventListener('input', (e) => onChange(e.target.value));
-      row.append(sel, color);
-      wrap.append(lbl, row);
-      return wrap;
-    }
-
-    _segmentsField(value) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const ta = document.createElement('textarea');
-      ta.rows = 4; ta.className = 'sel'; ta.style.fontFamily = 'monospace';
-      ta.value = value ? JSON.stringify(value, null, 2) : '';
-      ta.placeholder = '[]';
-      ta.addEventListener('change', (e) => {
-        const t = e.target.value.trim();
-        if (!t) { this._patch('segments', ''); return; }
-        try { this._patch('segments', JSON.parse(t)); } catch (_) { /* wait for valid JSON */ }
-      });
-      wrap.appendChild(ta);
-      return wrap;
     }
   }
   customElements.define('prism-bar-card-editor', PrismBarCardEditor);
@@ -2178,12 +2192,11 @@
       return { title: 'Comparison', entities: sensors.length ? sensors : ['sensor.example'], sort: true, accent: 'blue' };
     }
 
-    _segColor(value) {
-      const segs = Array.isArray(this._config.segments) ? this._config.segments : [];
+    // `segs` is already resolved + sorted (P.resolveSegments).
+    _segColor(value, segs) {
       if (!segs.length) return null;
-      const sorted = [...segs].sort((a, b) => a.from - b.from);
-      let col = P.resolveAccent(sorted[0].color);
-      for (const s of sorted) if (value >= s.from) col = P.resolveAccent(s.color);
+      let col = P.resolveAccent(segs[0].color);
+      for (const s of segs) if (value >= s.from) col = P.resolveAccent(s.color);
       return col;
     }
 
@@ -2217,12 +2230,13 @@
         for (const r of rows) if (r.has && r.raw > max) max = r.raw;
         if (!(max > min)) max = min + 1;
       }
+      const segs = P.resolveSegments(c.segments, min, max);
 
       const dec = (v) => c.decimals != null ? Number(c.decimals) : (Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2);
 
       const rowsHtml = rows.map((r) => {
         const frac = r.has ? P.clamp((r.raw - min) / (max - min || 1), 0, 1) : 0;
-        const col = r.color || this._segColor(r.raw) || accent;
+        const col = r.color || this._segColor(r.raw, segs) || accent;
         const valTxt = r.has ? `${P.esc(P.fmtNumber(r.raw, dec(r.raw)))}${r.unit ? `<span class="u"> ${P.esc(r.unit)}</span>` : ''}` : '—';
         const iconHtml = r.icon ? `<ha-icon class="ic" icon="${P.esc(r.icon)}" style="color:${col}"></ha-icon>` : '';
         return `
@@ -2307,22 +2321,9 @@
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show min / max labels', c.show_minmax !== false, (v) => this._patch('show_minmax', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
-        this._segmentsField(c.segments)
+        this._hint('Each band starts at its “From” value and colours readings at or above it. Use a number, or a percentage of the range (e.g. 60%) so bands follow a min / max that comes from attributes.'),
+        this._bandsField()
       );
-    }
-
-    _segmentsField(value) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const ta = document.createElement('textarea');
-      ta.rows = 5; ta.className = 'sel'; ta.style.fontFamily = 'monospace';
-      ta.value = JSON.stringify(value ?? [], null, 2);
-      ta.addEventListener('change', (e) => {
-        try { this._patch('segments', JSON.parse(e.target.value)); } catch (_) { /* wait for valid JSON */ }
-      });
-      wrap.appendChild(ta);
-      return wrap;
     }
   }
   customElements.define('prism-linear-gauge-card-editor', PrismLinearGaugeCardEditor);

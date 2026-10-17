@@ -312,6 +312,21 @@ check('parses compact history', async () => {});
     el.setConfig({ entity: 'sensor.x', style: 'bands', needle: false, segments: [{ from: 0, color: 'green' }] });
     if (el.shadowRoot._html.includes('class="needle"')) throw new Error('needle: false still drew it');
   });
+  check('gauge needle: off by default in fill, opt-in with needle: true', () => {
+    const el = new (customElements.get('prism-gauge-card'))();
+    el.setConfig({ entity: 'sensor.x', style: 'fill' });
+    el.hass = hass;
+    if (el.shadowRoot._html.includes('class="needle"')) throw new Error('fill drew a needle by default');
+    el.setConfig({ entity: 'sensor.x', style: 'fill', needle: true });
+    if (!el.shadowRoot._html.includes('class="needle"')) throw new Error('needle: true ignored in fill');
+  });
+  check('bar card bands accept a percentage of the shared scale', () => {
+    const el = new (customElements.get('prism-bar-card'))();
+    // sensor.x = 61.5 on a 0–100 scale: past 50% (amber), short of 80% (red).
+    el.setConfig({ entities: ['sensor.x'], min: 0, max: 100, segments: [{ from: 0, color: 'green' }, { from: '50%', color: 'amber' }, { from: '80%', color: 'red' }] });
+    el.hass = hass;
+    if (!el.shadowRoot._html.includes(P.ACCENTS.amber)) throw new Error('expected amber bar');
+  });
   check('gauge bands: absolute and percentage-of-range', () => {
     const segs = P.resolveSegments([{ from: '50%', color: 'b' }, { from: 0, color: 'a' }, { from: '90%', color: 'c' }, { from: 'x', color: 'bad' }, { color: 'none' }], 10, 60);
     const got = segs.map((s) => `${s.color}@${s.from}`).join(' ');
