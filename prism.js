@@ -213,6 +213,15 @@
     }
   }
 
+  // History cache policy for the stat / sparkline / power cards. A series is
+  // kept for 5 minutes; an empty one (no numeric history, e.g. a text sensor)
+  // is retried after 1 minute instead of on every state push.
+  const HISTORY_TTL = 5 * 60 * 1000;
+  const HISTORY_RETRY = 60 * 1000;
+  function historyStale(fetchedAt, points, now = Date.now()) {
+    return now - fetchedAt >= (points && points.length ? HISTORY_TTL : HISTORY_RETRY);
+  }
+
   // Largest-Triangle-Three-Buckets-ish downsample (cheap): even stride.
   function downsample(points, maxPoints) {
     if (points.length <= maxPoints) return points;
@@ -831,6 +840,7 @@
     gaugeRange,
     resolveSegments,
     fetchHistory,
+    historyStale,
     downsample,
     sparklinePath,
     registerCard,
@@ -1176,8 +1186,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-stat-card: `entity` is required.');
       this._config = { ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.trend_hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) this._render();
     }
 
@@ -1207,10 +1223,12 @@
     async _maybeFetchHistory() {
       if (!this._needsHistory() || !this._hass) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return; // 5-min cache
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.trend_hours) > 0 ? Number(this._config.trend_hours) : 24;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 200);
       this._render();
     }
@@ -1574,8 +1592,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-sparkline-card: `entity` is required.');
       this._config = { hours: 24, style: 'area', ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) { this._maybeFetch(); this._render(); }
     }
 
@@ -1598,10 +1622,12 @@
     async _maybeFetch() {
       if (!this._hass || !this._config) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return;
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.hours) > 0 ? Number(this._config.hours) : 24;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 300);
       this._render();
     }
@@ -1775,8 +1801,14 @@
     setConfig(config) {
       if (!config.entity) throw new Error('prism-power-card: `entity` is required.');
       this._config = { mode: 'load', ...config };
-      this._history = [];
-      this._historyAt = 0;
+      // Only drop cached history when something that shapes it changes, not on
+      // every edit (the card editor calls setConfig on each keystroke).
+      const key = JSON.stringify([this._config.entity, this._config.hours]);
+      if (key !== this._historyKey) {
+        this._historyKey = key;
+        this._history = [];
+        this._historyAt = 0;
+      }
       if (this._hass) this._render();
     }
 
@@ -1809,10 +1841,12 @@
     async _maybeFetchHistory() {
       if (!this._needsHistory() || !this._hass) return;
       const now = Date.now();
-      if (now - this._historyAt < 5 * 60 * 1000 && this._history.length) return; // 5-min cache
+      if (!P.historyStale(this._historyAt, this._history, now)) return;
       this._historyAt = now;
       const hours = Number(this._config.hours) > 0 ? Number(this._config.hours) : 3;
+      const key = this._historyKey;
       const raw = await P.fetchHistory(this._hass, this._config.entity, hours);
+      if (key !== this._historyKey) return; // config changed while fetching
       this._history = P.downsample(raw, 200);
       this._render();
     }
@@ -6188,17 +6222,15 @@
     return `Updated ${Math.round(s / 86400)}d ago`;
   }
 
-  // Rendered text width in SVG units. Before the card is attached and laid out
-  // getComputedTextLength() returns 0, so estimate from the character count;
-  // _fit() runs again once the card is visible.
+  // Rendered text width in SVG units, as [width, measured]. Before the card is
+  // attached and laid out getComputedTextLength() returns 0, so estimate from
+  // the character count (measured = false); _fit() runs again once visible.
   function textLen(el) {
     let w = 0;
     try { w = el.getComputedTextLength(); } catch (_) { /* not rendered */ }
-    if (!w) {
-      const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
-      w = String(el.textContent || '').length * fs * 0.6;
-    }
-    return Math.ceil(w);
+    if (w) return [Math.ceil(w), true];
+    const fs = parseFloat(el.getAttribute && el.getAttribute('font-size')) || 12;
+    return [Math.ceil(String(el.textContent || '').length * fs * 0.6), false];
   }
 
   // Shared terrain + extra colour tokens (TOKEN_STYLE covers the rest).
@@ -6424,15 +6456,19 @@
     connectedCallback() {
       this._tick = setInterval(() => { this._refreshHistory(); this._update(); }, 30000);
       if (typeof ResizeObserver !== 'undefined') {
-        this._ro = new ResizeObserver(() => this._fit());
+        this._ro = new ResizeObserver(() => this._scheduleFit());
         this._ro.observe(this);
       }
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this._fit());
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { this._fitMeasured = false; this._scheduleFit(); });
+      }
     }
 
     disconnectedCallback() {
       clearInterval(this._tick);
       if (this._ro) this._ro.disconnect();
+      if (this._fitRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._fitRaf);
+      this._fitRaf = 0;
     }
 
     getCardSize() { return 5; }
@@ -6544,29 +6580,49 @@
 
       const svg = q('svg.scene');
       if (svg) svg.setAttribute('aria-label', `${c.title || 'Creek stage'} ${fmt(stage, d)} ${unit}, ${st.label.toLowerCase()}`);
-      this._fit();
+      this._scheduleFit();
+    }
+
+    // Coalesce fit requests (state updates, resizes, font loads) into one frame,
+    // after the browser has laid the card out anyway.
+    _scheduleFit() {
+      if (this._fitRaf) return;
+      const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
+      this._fitRaf = raf(() => { this._fitRaf = 0; this._fit(); });
     }
 
     // Size the pill, threshold labels and peak chip to their text.
     _fit() {
       if (!this._built) return;
       const r = this.shadowRoot, q = (s) => r.querySelector(s);
+      // [text element, background, apply(width)] for each label that sizes to its text.
+      const items = [];
       const pillText = q('.pill'), pillBg = q('.pill-bg');
       if (pillText && pillBg) {
-        const w = textLen(pillText) + 22;
-        pillBg.setAttribute('width', w);
-        pillBg.setAttribute('x', 384 - w);
-        pillText.setAttribute('x', 384 - w / 2);
+        items.push([pillText, (tw) => {
+          const w = tw + 22;
+          pillBg.setAttribute('width', w);
+          pillBg.setAttribute('x', 384 - w);
+          pillText.setAttribute('x', 384 - w / 2);
+        }]);
       }
       for (const key of ['action', 'flood', 'major']) {
         const t = q(`.th-${key} text`), bg = q(`.th-${key} rect`);
-        if (!t || !bg) continue;
-        const w = textLen(t) + 8;
-        bg.setAttribute('width', w);
-        bg.setAttribute('x', 378 - w);
+        if (t && bg) items.push([t, (tw) => { bg.setAttribute('width', tw + 8); bg.setAttribute('x', 378 - (tw + 8)); }]);
       }
       const peakText = q('.peak-text'), peakBg = q('.peak-bg');
-      if (peakText && peakBg) peakBg.setAttribute('width', textLen(peakText) + 4 + 20);
+      if (peakText && peakBg) items.push([peakText, (tw) => peakBg.setAttribute('width', tw + 4 + 20)]);
+
+      // Widths in SVG units don't change when the card is resized, so skip the
+      // measurement unless a label changed or the last pass had to estimate.
+      const sig = items.map(([t]) => t.textContent).join('|');
+      if (sig === this._fitSig && this._fitMeasured) return;
+      // Read every width first, then write: interleaving reads with attribute
+      // writes forces a fresh layout for each label.
+      const widths = items.map(([t]) => textLen(t));
+      items.forEach(([, apply], i) => apply(widths[i][0]));
+      this._fitSig = sig;
+      this._fitMeasured = widths.every(([, measured]) => measured);
     }
   }
 

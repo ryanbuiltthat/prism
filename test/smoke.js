@@ -258,6 +258,26 @@ check('parses compact history', async () => {});
     if (reg.isSupported(hass, { entity_id: 'sensor.x' })) throw new Error('% sensor should not be supported');
   });
 
+  console.log('History caching');
+  check('historyStale: 5 min for data, 1 min for an empty series', () => {
+    const n = 1e12, pts = [{ t: 1, v: 1 }];
+    if (P.historyStale(n - 4 * 60000, pts, n) || !P.historyStale(n - 6 * 60000, pts, n)) throw new Error('data ttl');
+    if (P.historyStale(n - 30000, [], n) || !P.historyStale(n - 61000, [], n)) throw new Error('empty retry');
+  });
+  check('stat card: no refetch per state push (empty history) or per edit', () => {
+    let calls = 0;
+    const h = { ...hass, callWS: (m) => { if (m.type === 'history/history_during_period') calls++; return Promise.resolve({}); } };
+    const el = new (customElements.get('prism-stat-card'))();
+    el.setConfig({ entity: 'sensor.wind_dir', trend: true });   // text sensor → empty history
+    for (let i = 0; i < 5; i++) el.hass = { ...h };               // five state pushes
+    el.setConfig({ entity: 'sensor.wind_dir', trend: true, name: 'Edited' }); // an editor keystroke
+    el.hass = { ...h };
+    if (calls !== 1) throw new Error(`expected 1 fetch, got ${calls}`);
+    el.setConfig({ entity: 'sensor.x', trend: true });           // entity change → refetch
+    el.hass = { ...h };
+    if (calls !== 2) throw new Error(`expected a refetch on entity change, got ${calls}`);
+  });
+
   console.log('Gauge range');
   check('gauge range: attribute → config → entity range attrs → default', () => {
     const r = (cfg) => { const g = P.gaugeRange(hass, cfg); return `${g.min}-${g.max}`; };

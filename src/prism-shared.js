@@ -209,6 +209,15 @@
     }
   }
 
+  // History cache policy for the stat / sparkline / power cards. A series is
+  // kept for 5 minutes; an empty one (no numeric history, e.g. a text sensor)
+  // is retried after 1 minute instead of on every state push.
+  const HISTORY_TTL = 5 * 60 * 1000;
+  const HISTORY_RETRY = 60 * 1000;
+  function historyStale(fetchedAt, points, now = Date.now()) {
+    return now - fetchedAt >= (points && points.length ? HISTORY_TTL : HISTORY_RETRY);
+  }
+
   // Largest-Triangle-Three-Buckets-ish downsample (cheap): even stride.
   function downsample(points, maxPoints) {
     if (points.length <= maxPoints) return points;
@@ -827,6 +836,7 @@
     gaugeRange,
     resolveSegments,
     fetchHistory,
+    historyStale,
     downsample,
     sparklinePath,
     registerCard,
