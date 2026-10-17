@@ -30,6 +30,7 @@ FILES=(
   "src/prism-lightning-card.js"
   "src/prism-lux-card.js"
   "src/prism-creek-card.js"
+  "src/prism-purifier-card.js"
 )
 
 {

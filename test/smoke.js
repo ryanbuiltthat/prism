@@ -43,7 +43,7 @@ global.console.info = () => {};
 
 // ── Load sources in bundle order ───────────────────────────────────
 const root = path.join(__dirname, '..');
-for (const f of ['src/prism-shared.js', 'src/prism-weather-anim.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js', 'src/prism-lightning-card.js', 'src/prism-lux-card.js', 'src/prism-creek-card.js']) {
+for (const f of ['src/prism-shared.js', 'src/prism-weather-anim.js', 'src/prism-stat-card.js', 'src/prism-gauge-card.js', 'src/prism-sparkline-card.js', 'src/prism-power-card.js', 'src/prism-bar-card.js', 'src/prism-linear-gauge-card.js', 'src/prism-entities-card.js', 'src/prism-filter-card.js', 'src/prism-switch-card.js', 'src/prism-light-card.js', 'src/prism-climate-card.js', 'src/prism-cover-card.js', 'src/prism-media-card.js', 'src/prism-wind-card.js', 'src/prism-weather-card.js', 'src/prism-forecast-card.js', 'src/prism-sun-card.js', 'src/prism-uv-card.js', 'src/prism-rain-card.js', 'src/prism-aqi-card.js', 'src/prism-lightning-card.js', 'src/prism-lux-card.js', 'src/prism-creek-card.js', 'src/prism-purifier-card.js']) {
   eval(fs.readFileSync(path.join(root, f), 'utf8'));
 }
 
@@ -88,6 +88,12 @@ const hass = {
     'sensor.illuminance': { state: '18500', attributes: { friendly_name: 'Illuminance', unit_of_measurement: 'lx', device_class: 'illuminance' } },
     'sensor.creek_stage': { state: '2.4', attributes: { friendly_name: 'Mill Creek Stage', unit_of_measurement: 'ft' }, last_changed: new Date(now - 300000).toISOString() },
     'sensor.creek_offline': { state: 'unavailable', attributes: { friendly_name: 'Creek Offline', unit_of_measurement: 'ft' } },
+    'fan.air_cleaner': { state: 'on', attributes: { friendly_name: 'Air Cleaner', percentage: 25, percentage_step: 25, preset_mode: null, preset_modes: ['auto', 'sleep'] } },
+    'sensor.air_cleaner_air_quality': { state: 'excellent', attributes: { friendly_name: 'Air Cleaner Air Quality' } },
+    'sensor.air_cleaner_pm2_5': { state: '1', attributes: { friendly_name: 'Air Cleaner PM2.5', unit_of_measurement: 'µg/m³', device_class: 'pm25' } },
+    'sensor.air_cleaner_filter_lifetime': { state: '14', attributes: { friendly_name: 'Air Cleaner Filter Lifetime', unit_of_measurement: '%' } },
+    'fan.purifier_auto': { state: 'on', attributes: { friendly_name: 'Bedroom Purifier', percentage: null, preset_mode: 'auto', preset_modes: ['auto', 'sleep'] } },
+    'fan.purifier_off': { state: 'unavailable', attributes: { friendly_name: 'Offline Purifier' } },
   },
   callService: () => {},
   callWS: (msg) => {
@@ -187,6 +193,9 @@ check('parses compact history', async () => {});
     ['prism-creek-card', { entity: 'sensor.creek_stage', title: 'Mill Creek', bed: 0, bank: 3.2, action: 2, flood: 3.2, major: 4 }],
     ['prism-creek-card', { entity: 'sensor.creek_stage', unit: 'ft', decimals: 2, show_trend: false, show_peak: false, show_updated: false, animate: false, accent: 'teal' }],
     ['prism-creek-card', { entity: 'sensor.creek_offline', flood: 3 }],
+    ['prism-purifier-card', { entity: 'fan.air_cleaner', title: 'Basement' }],
+    ['prism-purifier-card', { entity: 'fan.purifier_auto', pm25_entity: 'sensor.air_cleaner_pm2_5', filter_entity: 'sensor.air_cleaner_filter_lifetime', accent: 'teal', animate: false, show_presets: false }],
+    ['prism-purifier-card', { entity: 'fan.purifier_off' }],
   ];
   for (const [tag, cfg] of cards) {
     check(`${tag} (${cfg.style || cfg.mode || (cfg.entities ? cfg.entities.length + ' entities' : (cfg.entity || 'default'))})`, () => {
@@ -242,6 +251,45 @@ check('parses compact history', async () => {});
     const reg = window.customCardFeatures.find((f) => f.type === 'prism-creek-stage-feature');
     if (!reg || !reg.isSupported(hass, { entity_id: 'sensor.creek_stage' })) throw new Error('not supported');
     if (reg.isSupported(hass, { entity_id: 'sensor.x' })) throw new Error('% sensor should not be supported');
+  });
+
+  console.log('Purifier helpers');
+  const Q = P.purifier;
+  check('purifier AQ level from words, 1–4 numbers, and PM2.5 fallback', () => {
+    const got = [['excellent'], ['Very good'], ['good'], ['moderate'], ['poor'], ['1'], ['4'], [null, 8], [null, 30], ['unknown', 50], [null, 90], [null, NaN]]
+      .map(([r, pm]) => Q.aqLevel(r, pm)).join();
+    if (got !== '0,0,1,2,3,0,3,0,1,2,3,-1') throw new Error(got);
+  });
+  check('purifier speed count + level', () => {
+    const st = (pct, step, state = 'on') => ({ state, attributes: { percentage: pct, percentage_step: step } });
+    if (Q.speedCount(st(25, 25)) !== 4 || Q.speedCount(st(0, 33.333)) !== 3 || Q.speedCount(st(0)) !== 4 || Q.speedCount(st(0, 25), 6) !== 6) throw new Error('count');
+    const lv = [25, 50, 75, 100].map((p) => Q.speedLevel(st(p, 25), 4)).join();
+    if (lv !== '1,2,3,4') throw new Error(lv);
+    if (Q.speedLevel(st(33, 33.33), 3) !== 1 || Q.speedLevel(st(null, 25), 4) !== 0 || Q.speedLevel(st(50, 25, 'off'), 4) !== 0) throw new Error('edge');
+  });
+  check('purifier discovers VeSync siblings by name and by device', () => {
+    const d = Q.discover(hass, 'fan.air_cleaner');
+    if (d.aq !== 'sensor.air_cleaner_air_quality' || d.pm25 !== 'sensor.air_cleaner_pm2_5' || d.filter !== 'sensor.air_cleaner_filter_lifetime') throw new Error(JSON.stringify(d));
+    const h2 = { states: hass.states, entities: { 'fan.lr': { device_id: 'D' }, 'sensor.air_cleaner_pm2_5': { device_id: 'D' } } };
+    const d2 = Q.discover(h2, 'fan.lr');
+    if (d2.pm25 !== 'sensor.air_cleaner_pm2_5' || d2.aq || d2.filter) throw new Error(JSON.stringify(d2));
+  });
+  check('purifier grille spins faster with speed', () => {
+    const p = [1, 2, 3, 4].map((l) => Q.spinPeriod(true, l, 4, null));
+    if (!(p[0] > p[1] && p[1] > p[2] && p[2] > p[3])) throw new Error(p.join());
+    if (Q.spinPeriod(false, 2, 4, null) !== 0 || !(Q.spinPeriod(true, 0, 4, 'sleep') > Q.spinPeriod(true, 0, 4, 'auto'))) throw new Error('presets');
+  });
+  check('purifier renders PM2.5, filter warning, speeds + presets', () => {
+    const el = new (customElements.get('prism-purifier-card'))();
+    el.setConfig({ entity: 'fan.air_cleaner' });
+    el.hass = hass;
+    const h = el.shadowRoot._html;
+    for (const want of ['Excellent', 'PM2.5', 'Replace soon', 'Speed 1 of 4', 'data-speed="4"', 'data-preset="sleep"']) {
+      if (!h.includes(want)) throw new Error('missing ' + want);
+    }
+    let threw = false;
+    try { el.setConfig({ entity: 'sensor.x' }); } catch (_) { threw = true; }
+    if (!threw) throw new Error('non-fan entity should throw');
   });
 
   check('missing entity throws', () => {

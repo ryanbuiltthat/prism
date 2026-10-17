@@ -728,6 +728,38 @@ title: Air Quality
 
 ---
 
+## `custom:prism-purifier-card`
+
+Flat **air-purifier tile**, designed around the VeSync / Levoit Core series (Core 600S / LAP-C601S, plus 200S / 300S / 400S), and it works with any `fan.*` that has a percentage or presets. The hero is a top-down purifier disc. Its **ring glows in Levoit's air-quality colours** (blue Excellent → green Good → orange Moderate → red Poor) and the **PM2.5 reading** sits inside as the dominant value. The outlet grille around it **spins faster as the fan speeds up**, more slowly in Sleep, and stops when the purifier is off. Beside the disc are **filter life** (a bar plus Good / Replace soon / Replace now) and a four-step **air-quality scale**. Below are **stepped fan-speed buttons** and **preset pills** (Auto / Sleep).
+
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `entity` | string | — | **Required.** The purifier's `fan.*` entity. |
+| `air_quality_entity` | string | auto | Air-quality sensor: a 1–4 level or a word (`excellent` / `good` / `moderate` / `poor`). Without it, the level is derived from PM2.5 (≤12 / ≤35 / ≤55 / above). |
+| `pm25_entity` | string | auto | PM2.5 sensor (µg/m³). |
+| `filter_entity` | string | auto | Filter-lifetime sensor (%). |
+| `name` | string | friendly name | |
+| `icon` | string | `mdi:air-purifier` | Power-chip icon. |
+| `title` | string | — | Card header. |
+| `accent` | string | theme | Colour for the power chip, active speed steps, and the active preset. |
+| `show_speed` | bool | `true` | Show the stepped fan-speed buttons. |
+| `show_presets` | bool | `true` | Show preset pills from the fan's `preset_modes` (`manual` is hidden). |
+| `speed_count` | number | from `percentage_step` | Number of speed steps (4 on a Core 600S). |
+| `filter_warn` | number | `20` | Filter % at or below which it shows *Replace soon* (≤5 % shows *Replace now*). |
+| `animate` | bool | `true` | Spin the outlet grille. |
+
+**Auto-detection:** when a sensor key is blank, the card looks for `sensor.*` entities on the **same device** as the fan in the entity registry, falling back to `sensor.<fan object id>_*`. VeSync names them `…_air_quality`, `…_pm2_5`, and `…_filter_lifetime`, so usually only `entity` is needed.
+
+**Controls:** tap the power chip to toggle (`fan.toggle`); hold it for more-info. A speed step calls `fan.set_percentage` (step × 100 / steps). On VeSync this also switches the purifier to manual. A preset pill calls `fan.set_preset_mode`. In Auto, VeSync reports no percentage, so no speed step is lit. Tapping the disc, filter, or air-quality block opens that sensor's more-info.
+
+```yaml
+type: custom:prism-purifier-card
+entity: fan.air_cleaner
+title: Basement
+```
+
+---
+
 ## `custom:prism-lightning-card`
 
 Flat **lightning tile**: the **strike count** is the dominant value, with the **last-strike time** and **distance** for context, and an animated flat storm cloud whose **bolt flickers**. Built for lightning sensors like Ecowitt / AS3935.
@@ -803,6 +835,7 @@ Cards implement `getGridOptions()` for the sections layout:
 | Creek stage | auto | 12 |
 | Rain | 3 | 6 |
 | Air Quality | 3 | 6 |
+| Air Purifier | auto | 12 (min 6) |
 | Lightning | 3 | 6 |
 | Lux | 3 | 6 |
 
