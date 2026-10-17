@@ -27,6 +27,8 @@
     return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
   }
   const degAt = (f) => START - P.clamp(f, 0, 1) * SWEEP;
+  // The needle is on by default for the bands style, off for fill.
+  const needleOn = (c) => (c.needle != null ? c.needle !== false : c.style === 'bands');
 
   // ── Editor ────────────────────────────────────────────────────────
   class PrismGaugeCardEditor extends P.PrismEditor {
@@ -44,27 +46,12 @@
         this._hint('A chosen attribute wins whenever it holds a number; Minimum / Maximum are the fallback. With both blank, the entity’s own range attributes (min / max on input_number and number, minimum / maximum on counter) are used, else 0–100.'),
         this._tf('Decimals', c.decimals, (v) => this._patch('decimals', v), { type: 'number' }),
         this._select('Style', ['fill', 'bands'], c.style || 'fill', (v) => { this._patch('style', v); this._rerender(); }),
-        ...(c.style === 'bands' ? [this._switch('Show needle', c.needle !== false, (v) => this._patch('needle', v))] : []),
+        this._switch('Show needle', needleOn(c), (v) => this._patch('needle', v)),
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
-        this._segmentsField(c.segments)
+        this._hint('Each band starts at its “From” value and colours readings at or above it. Use a number, or a percentage of the range (e.g. 60%) so bands follow a min / max that comes from attributes.'),
+        this._bandsField()
       );
-    }
-
-    _segmentsField(value) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const ta = document.createElement('textarea');
-      ta.rows = 5;
-      ta.className = 'sel';
-      ta.style.fontFamily = 'monospace';
-      ta.value = JSON.stringify(value ?? [], null, 2);
-      ta.addEventListener('change', (e) => {
-        try { this._patch('segments', JSON.parse(e.target.value)); } catch (_) { /* wait for valid JSON */ }
-      });
-      wrap.appendChild(ta);
-      return wrap;
     }
   }
   customElements.define('prism-gauge-card-editor', PrismGaugeCardEditor);
@@ -149,7 +136,7 @@
       // before the value text (SVG paints in document order), and the text's
       // surface-coloured halo keeps the digits clean where the needle passes.
       let needle = '';
-      if (c.style === 'bands' && c.needle !== false && has) {
+      if (needleOn(c) && has) {
         const deg = degAt(frac);
         const [x0, y0] = pt(cx, cy, 30, deg);
         const [x1, y1] = pt(cx, cy, r - tw - 4, deg);

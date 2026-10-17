@@ -32,22 +32,9 @@
         this._accentField(c.accent, (v) => this._patch('accent', v)),
         this._switch('Show min / max labels', c.show_minmax !== false, (v) => this._patch('show_minmax', v)),
         this._section('Severity bands'),
-        this._hint('JSON array, e.g. [{"from":0,"color":"green"},{"from":60,"color":"amber"},{"from":85,"color":"red"}]. A "from" can also be a percentage of the range, e.g. "60%", so bands follow a min/max that comes from attributes. Colours accept preset names or hex.'),
-        this._segmentsField(c.segments)
+        this._hint('Each band starts at its “From” value and colours readings at or above it. Use a number, or a percentage of the range (e.g. 60%) so bands follow a min / max that comes from attributes.'),
+        this._bandsField()
       );
-    }
-
-    _segmentsField(value) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const ta = document.createElement('textarea');
-      ta.rows = 5; ta.className = 'sel'; ta.style.fontFamily = 'monospace';
-      ta.value = JSON.stringify(value ?? [], null, 2);
-      ta.addEventListener('change', (e) => {
-        try { this._patch('segments', JSON.parse(e.target.value)); } catch (_) { /* wait for valid JSON */ }
-      });
-      wrap.appendChild(ta);
-      return wrap;
     }
   }
   customElements.define('prism-linear-gauge-card-editor', PrismLinearGaugeCardEditor);
