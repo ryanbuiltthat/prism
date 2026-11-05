@@ -68,11 +68,27 @@ The shared `PrismUI` runtime is built to grow — more cards may follow.
 
 ## Installation
 
-### Cards — via HACS (recommended)
+### Cards — via the Marketplace / HACS (recommended)
 
-Prism's cards install through [HACS](https://hacs.xyz).
+Since **Home Assistant 2026.11**, HACS is built into Home Assistant as the
+**Marketplace** (Settings -> Marketplace). Existing HACS installs of Prism move
+over automatically on the first start of 2026.11 and keep getting updates;
+there is nothing to reinstall.
 
-**Custom repository (works today):**
+**Home Assistant 2026.11 or newer (Marketplace):**
+
+1. **Settings -> Marketplace -> Add from link**. Custom repositories need a
+   GitHub connection.
+2. Repository: `ryanbuiltthat/prism`. If you're asked for a type, pick
+   **Dashboard**, since this repo also contains a theme file.
+3. Open **Prism** -> **Download**. The Marketplace adds `prism.js` as a
+   dashboard resource, served from `/local/community/prism/prism.js`.
+4. Hard-refresh your browser (Ctrl/Cmd + Shift + R).
+
+The **Open in HACS** button at the top of this page still works; on 2026.11 it
+opens the repository in the Marketplace.
+
+**Older Home Assistant (standalone HACS):**
 
 1. **HACS -> 3-dot menu (top right) -> Custom repositories**
 2. Repository: `ryanbuiltthat/prism` &nbsp;·&nbsp; Type: **Dashboard** &nbsp;·&nbsp; **Add**
@@ -80,9 +96,15 @@ Prism's cards install through [HACS](https://hacs.xyz).
    `prism.js` as a dashboard resource for you.
 4. Hard-refresh your browser (Ctrl/Cmd + Shift + R).
 
-> **Coming to the default HACS store:** Prism is being submitted to the default
-> HACS list. Once it's accepted you can skip the custom-repository step and just
-> search **Prism** in HACS -> Explore & download.
+> **YAML-managed resources:** if your dashboard resources live in YAML, the
+> Marketplace can't add them for you. Use
+> `url: /local/community/prism/prism.js` (`type: module`). The old
+> `/hacsfiles/prism/prism.js` path still works, but HA raises a repair asking
+> you to switch.
+
+> **Coming to the default catalog:** Prism is being submitted to the default
+> HACS list, which is now the Marketplace catalog. Once it's accepted you can
+> skip the custom-repository step and just search **Prism** in the Marketplace.
 
 ### Cards — manual
 
@@ -96,8 +118,9 @@ Copy **`prism.js`** into your HA `config/www/` folder, then add it as a resource
 
 ### Theme (all install methods)
 
-HACS installs the **cards** (this repo registers as a Lovelace **plugin**); the
-**theme** is a separate file either way. Copy **`themes/prism.yaml`** into
+The Marketplace (or HACS) installs the **cards**: this repo registers as a
+**Dashboard** (`plugin`) repository, and a repository is managed as only one
+type, so the **theme** is a separate file either way. Copy **`themes/prism.yaml`** into
 `config/themes/`, then in `configuration.yaml`:
 
 ```yaml
