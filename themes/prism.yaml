@@ -13,8 +13,14 @@
 #  to configuration.yaml, restart, then pick a theme in your profile.
 #
 #  Make your own accent: copy a whole `Prism …:` block, rename it, and
-#  change the four accent lines (prism-accent / primary-color /
-#  paper-item-icon-active-color / state-icon-active-color).
+#  change the accent lines (prism-accent / primary-color / accent-color /
+#  paper-item-icon-active-color / state-icon-active-color /
+#  switch-checked-color / ha-switch-checked-background-color).
+#
+#  Compatibility: switch-checked-color, paper-item-icon-active-color and
+#  mdc-shape-* are read only by older HA frontends; current HA (2026.x)
+#  ignores them. They are kept so the theme still looks right on older
+#  installs. ha-switch-checked-background-color is the current name.
 # ─────────────────────────────────────────────────────────────────────────
 
 Prism:
@@ -29,7 +35,7 @@ Prism:
     ha-card-border-radius: "18px"
     ha-card-box-shadow: "none"
     ha-card-border-width: "1px"
-    # Rounder controls
+    # Rounder controls (legacy MWC frontends only; ignored by HA 2026.x)
     mdc-shape-small: "10px"
     mdc-shape-medium: "14px"
 
@@ -77,6 +83,7 @@ Prism:
         paper-item-icon-active-color: "#3aa0e8"
         state-icon-active-color: "#3aa0e8"
         switch-checked-color: "#3aa0e8"
+        ha-switch-checked-background-color: "#3aa0e8"
     dark:
       <<: &flat-dark
         primary-background-color: "#0e1113"
@@ -114,6 +121,7 @@ Prism:
         paper-item-icon-active-color: "#4aa9ee"
         state-icon-active-color: "#4aa9ee"
         switch-checked-color: "#4aa9ee"
+        ha-switch-checked-background-color: "#4aa9ee"
 
 # ── Accent variants — reuse the flat base, swap only the accent ──────────
 
@@ -128,6 +136,7 @@ Prism Emerald:
       paper-item-icon-active-color: "#2fa36a"
       state-icon-active-color: "#2fa36a"
       switch-checked-color: "#2fa36a"
+      ha-switch-checked-background-color: "#2fa36a"
     dark:
       <<: *flat-dark
       prism-accent: "#3fbb7d"
@@ -136,6 +145,7 @@ Prism Emerald:
       paper-item-icon-active-color: "#3fbb7d"
       state-icon-active-color: "#3fbb7d"
       switch-checked-color: "#3fbb7d"
+      ha-switch-checked-background-color: "#3fbb7d"
 
 Prism Amber:
   <<: *prism-shared
@@ -148,6 +158,7 @@ Prism Amber:
       paper-item-icon-active-color: "#e0922e"
       state-icon-active-color: "#e0922e"
       switch-checked-color: "#e0922e"
+      ha-switch-checked-background-color: "#e0922e"
     dark:
       <<: *flat-dark
       prism-accent: "#eaa246"
@@ -156,6 +167,7 @@ Prism Amber:
       paper-item-icon-active-color: "#eaa246"
       state-icon-active-color: "#eaa246"
       switch-checked-color: "#eaa246"
+      ha-switch-checked-background-color: "#eaa246"
 
 Prism Violet:
   <<: *prism-shared
@@ -168,6 +180,7 @@ Prism Violet:
       paper-item-icon-active-color: "#7c62d6"
       state-icon-active-color: "#7c62d6"
       switch-checked-color: "#7c62d6"
+      ha-switch-checked-background-color: "#7c62d6"
     dark:
       <<: *flat-dark
       prism-accent: "#9683e0"
@@ -176,6 +189,7 @@ Prism Violet:
       paper-item-icon-active-color: "#9683e0"
       state-icon-active-color: "#9683e0"
       switch-checked-color: "#9683e0"
+      ha-switch-checked-background-color: "#9683e0"
 
 Prism Slate:
   <<: *prism-shared
@@ -188,6 +202,7 @@ Prism Slate:
       paper-item-icon-active-color: "#556370"
       state-icon-active-color: "#556370"
       switch-checked-color: "#556370"
+      ha-switch-checked-background-color: "#556370"
     dark:
       <<: *flat-dark
       prism-accent: "#8b98a4"
@@ -196,3 +211,4 @@ Prism Slate:
       paper-item-icon-active-color: "#8b98a4"
       state-icon-active-color: "#8b98a4"
       switch-checked-color: "#8b98a4"
+      ha-switch-checked-background-color: "#8b98a4"

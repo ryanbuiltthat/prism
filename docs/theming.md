@@ -49,6 +49,7 @@ only the accent.
    paper-item-icon-active-color: "#c2185b"
    state-icon-active-color: "#c2185b"
    switch-checked-color: "#c2185b"
+   ha-switch-checked-background-color: "#c2185b"
    ```
 5. Restart HA (or reload themes) and pick it in your profile.
 
